@@ -1,0 +1,66 @@
+
+
+root_dir: example/output/
+
+globals:
+  lmax: 3000
+  lmin: 100
+
+gitcheck_pkgs:
+  - numpy
+  - healpy
+
+gitcheck_paths:
+  - /home/msyriac/repos/pixell/pixell
+
+
+stages:
+  stage1:
+    exec: python
+    script: example/stage1.py
+    parallel:
+      threads: 40
+      walltime: 00:15:00
+  
+  stage2:
+    exec: python
+    script: example/stage2.py
+    globals:
+      - lmin
+      - lmax
+    options:
+      arg1: 0
+      arg2: 1
+      flag1: true
+    parallel:
+      threads: 40
+      walltime: 00:15:00
+      
+  
+  stage3:
+    exec: python
+    script: example/stage3.py
+    depends:
+      - stage1
+      - stage2
+    globals:
+      - lmin
+      - lmax
+    options:
+      nsims: 32
+    args:
+      - TTTT
+    parallel:
+      nproc: 8
+      threads: 40
+      walltime: 00:15:00
+
+  stage4:
+    exec: python
+    script: example/stage4.py
+    depends:
+      - stage3
+    parallel:
+      threads: 40
+      walltime: 00:15:00
+    

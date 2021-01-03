@@ -1,0 +1,29 @@
+
+# Arbitray number here, but you should change it to the number of hardware or
+# software (if hyperthreading) threads available in each node
+cores_per_node: 80
+
+# This is just an example template. See other templates for specific systems.
+template: |
+  #!/bin/bash
+  #SBATCH --nodes=!NODES
+  #SBATCH --time=!WALL
+  #SBATCH --ntasks-per-node=!TASKS
+  #SBATCH --output=/scratch/r/rbond/msyriac/mpi_output_%j.txt
+  #SBATCH --cpus-per-task=!THREADS
+
+  cd $SLURM_SUBMIT_DIR
+  export DISABLE_MPI=false
+
+  module load NiaEnv/2019b
+  module load intel/2019u4
+  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
+  module load intelmpi/2019u4
+  module load intelpython3/2019u4
+  module load autotools
+  module load cfitsio
+  module load gsl
+
+  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+  srun !CMD
