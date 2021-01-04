@@ -11,16 +11,13 @@ gitcheck_pkgs:
   - healpy
 
 gitcheck_paths:
-  - /home/msyriac/repos/pixell/pixell
+  - ./
 
 
 stages:
   stage1:
     exec: python
     script: example/stage1.py
-    parallel:
-      threads: 40
-      walltime: 00:15:00
   
   stage2:
     exec: python
@@ -33,7 +30,7 @@ stages:
       arg2: 1
       flag1: true
     parallel:
-      threads: 40
+      threads: 80
       walltime: 00:15:00
       
   
@@ -51,7 +48,7 @@ stages:
     args:
       - TTTT
     parallel:
-      nproc: 8
+      nproc: 4
       threads: 40
       walltime: 00:15:00
 
@@ -61,6 +58,7 @@ stages:
     depends:
       - stage3
     parallel:
-      threads: 40
+      nproc: 1
+      threads: 80
       walltime: 00:15:00
     

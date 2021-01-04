@@ -1,9 +1,11 @@
 import os,sys,shutil,subprocess,warnings
-import argunparse
+import argunparse,yaml,math,time
+from prompt_toolkit import print_formatted_text as pprint, HTML
+import random
 
 def check_slurm():
     try:
-        ret = subprocess.run(["sbatch","-V"],capture_output=True)
+        ret = subprocess.run(["sbatch","-V"])
         return True
     except FileNotFoundError:
         return False
@@ -42,15 +44,17 @@ def get_command(global_vals, stage_configs, stage):
     #from an external library
     return execution,script_name,unparsed
 
-def run_local(execution,script,args,dry_run):
-    print(f"Running {[execution,script,args]} locally...")
-    cmds = [execution,script,args]
+def run_local(cmds,dry_run):
+    print(f"Running {cmds} locally...")
     if dry_run:
         print(' '.join(cmds))
-        return True
+        return str(random.randint(1,32768))
     else:
-        sp = subprocess.run(cmds,capture_output=False,stderr=sys.stderr, stdout=sys.stdout)
-        return sp.returncode==0
+        sp = subprocess.run(cmds,stderr=sys.stderr, stdout=subprocess.PIPE)
+        output = sp.stdout.decode("utf-8")
+        print(output)
+        if sp.returncode!=0: raise Exception
+        return output
 
 def detect_site():
     sites = []
@@ -66,7 +70,7 @@ def detect_site():
         warnings.warn('No site specified through --site and did not automatically detect any sites. Using generic SLURM template.')
         sites.append( 'generic' )
     elif len(sites)==1:
-        warnings.warn(f'No site specified through --site; detected *{sites[0]}* automatically.')
+        pprint(HTML(f'<ansiyellow>No site specified through --site; detected <b>{sites[0]}</b> automatically.</ansiyellow>'))
     else:
         raise Exception(f"More than one site detected through environment variables: {sites}. Please specificy explicitly through the --site argument.")
     return sites[0]
@@ -74,13 +78,68 @@ def detect_site():
 def load_template(site):
     this_dir, this_filename = os.path.split(__file__)
     template_path = os.path.join(this_dir, "data", "sites", f"{site}.yml")
-    with open(template_path,'r') as f:
-        string = f.read()
-    return string
+    with open(template_path, 'r') as stream:
+        sbatch_config = yaml.safe_load(stream)
+    return sbatch_config
     
-def submit_slurm(site,execution,script,pargs,dry_run):
-    if site is None: site = detect_site()
-    slurm_string = load_template(site)
+def submit_slurm(stage,sbatch_config,parallel_config,execution,
+                 script,pargs,dry_run,output_dir,site,project,
+                 depstr=None):
+    cpn = sbatch_config['cores_per_node']
+    template = sbatch_config['template']
+    try:
+        nproc = parallel_config['nproc']
+    except (TypeError,KeyError) as e:
+        nproc = 1
+        pprint(HTML(f"<ansiyellow>No stage['parallel']['nproc'] found for {stage}. Assuming number of MPI processes nproc=1.</ansiyellow>"))
+    try:
+        threads = parallel_config['threads']
+    except (TypeError,KeyError) as e:
+        threads = cpn
+        pprint(HTML(f"<ansiyellow>No stage['parallel']['threads'] found for {stage}. Assuming number of OpenMP threads={cpn}.</ansiyellow>"))
+    try:
+        walltime = parallel_config['walltime']
+    except (TypeError,KeyError) as e:
+        walltime = "00:15:00"
+        pprint(HTML(f"<ansiyellow>No stage['parallel']['walltime'] found for <b>{stage}</b>. Assuming <b>walltime of {walltime}</b>.</ansiyellow>"))
+
+    num_cores = nproc * threads
+    num_nodes = int(math.ceil(num_cores/cpn))
+    totcores = num_nodes * cpn
+    tasks = int(nproc*1./num_nodes)
+    percent_used = num_cores*100./float(totcores)
+
+    if percent_used<90.: 
+        pprint(HTML(f"<ansiyellow>warnings.warn(f'Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s), we require {fnodes} nodes. Given that we round up to {nodes} in the request, this means a node will have <90% of its cores utilized. Reconsider the way you choose your threads..</ansiyellow>"))
+
+    template = template.replace('!NODES',str(num_nodes))
+    template = template.replace('!WALL',walltime)
+    template = template.replace('!TASKS',str(tasks))
+    template = template.replace('!THREADS',str(threads))
+    cmd = ' '.join([execution,script,pargs])
+    template = template.replace('!CMD',cmd)
+    template = template.replace('!OUT',os.path.join(output_dir,f'slurm_out_{stage}'))
+
+    if dry_run:
+        pprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
+        pprint(HTML(f'<skyblue><b>{"".join(["="]*len(stage))}</b></skyblue>'))
+        pprint(HTML(f'<skyblue>{template}</skyblue>'))
+    
+    # Get current time in Unix milliseconds to define log directory
+    init_time_ms = int(time.time()*1e3)
+    fname = os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
+    if not(dry_run):
+        with open(fname,'w') as f:
+            f.write(template)
+    cmds = []
+    cmds.append('sbatch')
+    cmds.append(f'--parsable')
+    if depstr is not None: cmds.append(f'{depstr}')
+    cmds.append(fname)
+    jobid = run_local(cmds,dry_run).strip()
+    print(f"Submitted and obtained jobid {jobid}")
+    return jobid
+        
 
 
 # In actsims also currently, but this should be its final home
@@ -242,3 +301,4 @@ def has_loop(depdict, seen=None, val=None):
     
     return False            
             
+

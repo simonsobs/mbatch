@@ -9,7 +9,7 @@ template: |
   #SBATCH --nodes=!NODES
   #SBATCH --time=!WALL
   #SBATCH --ntasks-per-node=!TASKS
-  #SBATCH --output=/scratch/r/rbond/msyriac/mpi_output_%j.txt
+  #SBATCH --output=!OUT_%j.txt
   #SBATCH --cpus-per-task=!THREADS
 
   cd $SLURM_SUBMIT_DIR
