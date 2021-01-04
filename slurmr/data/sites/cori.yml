@@ -5,9 +5,12 @@ template: |
   #!/bin/bash
   #SBATCH --constraint=haswell
   #SBATCH --nodes=!NODES
+  #SBATCH --ntasks=!TASKS
   #SBATCH --time=!WALL
   #SBATCH --job-name=!JOBNAME
+  #SBATCH --cpus-per-task=!THREADS
 
+  export DISABLE_MPI=false
   export OMP_PROC_BIND=true
   export OMP_PLACES=threads
   export OMP_NUM_THREADS=!THREADS
@@ -15,4 +18,4 @@ template: |
   
   module load python/3.7-anaconda-2019.07
   
-  srun -n !NUMJOBS -c !THREADS !CMD
+  srun --cpu-bind=cores !CMD

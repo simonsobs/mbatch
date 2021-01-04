@@ -1,16 +1,14 @@
 
-# Arbitray number here, but you should change it to the number of hardware or
-# software (if hyperthreading) threads available in each node
 cores_per_node: 80
 
-# This is just an example template. See other templates for specific systems.
 template: |
   #!/bin/bash
   #SBATCH --nodes=!NODES
   #SBATCH --time=!WALL
-  #SBATCH --ntasks-per-node=!TASKS
+  #SBATCH --ntasks-per-node=!TASKSPERNODE
   #SBATCH --output=!OUT_%j.txt
   #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --job-name=!JOBNAME
 
   cd $SLURM_SUBMIT_DIR
   export DISABLE_MPI=false
