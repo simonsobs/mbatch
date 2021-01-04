@@ -10,6 +10,7 @@ template: |
   #SBATCH --time=!WALL
   #SBATCH --job-name=!JOBNAME
   #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --output=!OUT_%j.txt
 
   export DISABLE_MPI=false
   export OMP_PROC_BIND=true

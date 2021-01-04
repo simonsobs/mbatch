@@ -7,9 +7,9 @@ template: |
   #SBATCH --nodes=!NODES
   #SBATCH --time=!WALL
   #SBATCH --ntasks-per-node=!TASKSPERNODE
-  #SBATCH --output=!OUT_%j.txt
   #SBATCH --cpus-per-task=!THREADS
   #SBATCH --job-name=!JOBNAME
+  #SBATCH --output=!OUT_%j.txt
 
   cd $SLURM_SUBMIT_DIR
   export DISABLE_MPI=false
