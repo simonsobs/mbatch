@@ -1,10 +1,10 @@
-import os,sys,shutil,subprocess
+import os,sys,shutil,subprocess,copy
 import argparse
 import warnings
 import yaml
 import slurmr
-from prompt_toolkit import print_formatted_text as pprint, HTML
-
+from prompt_toolkit import print_formatted_text as fprint, HTML
+from pprint import pprint
     
 def main(args):
 
@@ -31,34 +31,63 @@ def main(args):
     # Get stages in order of dependencies
     cstages = config['stages']
     stage_names = list(cstages.keys())
+
+    # Unroll loops from cstags into ostages
+    cstages = config['stages']
+    ostages = {} # Unrolled stage dictionary
+    unroll_map = {} # dict mapping parent stage name to list of unrolled iterated stage names
+    for stage in stage_names:
+        # Check if this is a looped stage
+        if 'args_loop' in cstages[stage]:
+            if 'args' in cstages[stage]: slurmr.raise_exception("You can't specify both args and args_loop in the same stage.")
+            unroll_map[stage] = []
+            for k,arg in enumerate(cstages[stage]['args_loop']):
+                new_stage_name = f'{stage}_!loop_iteration_{k}'
+                if new_stage_name in stage_names:
+                    slurmr.raise_exception(f"Internal loop stage name "
+                                    "clashes with {stage}_!loop_iteration_{k}. "
+                                    "Please use a different stage name.")
+                ostages[new_stage_name] = copy.deepcopy(cstages[stage])
+                del ostages[new_stage_name]['args_loop']
+                ostages[new_stage_name]['args'] = cstages[stage]['args_loop'][k]
+                unroll_map[stage].append(new_stage_name)
+        else:
+            ostages[stage] = copy.deepcopy(cstages[stage])
+
+    stage_names = list(ostages.keys())
+    # Map dependencies
     deps = {} # Mapping from stage to its dependencies
     depended = [] # List of stages that are depended on
     for sname in stage_names:
-        ds = cstages[sname].get('depends')
-        if ds is not None: 
-            deps[sname] = ds
-            for d in ds:
-                if d not in stage_names: 
-                    pprint(HTML(f"<red>Stage {d} required by {sname} not found in configuration file.</red>"))
-                    raise Exception
-                depended.append(d)
+        ds = ostages[sname].get('depends')
+        if ds is None: continue
+        my_deps = []
+        for d in ds:
+            if not(d in stage_names) and not(d in unroll_map):
+                slurmr.raise_exception(f"Stage {d} required by {sname} not found in configuration file.")
+            if d in unroll_map:
+                my_deps = my_deps + unroll_map[d]
+            else:
+                my_deps.append(d)
+        depended = depended + my_deps
+        deps[sname] = my_deps
 
-    if slurmr.has_loop(deps): raise Exception("Circular dependency detected.")
+    if slurmr.has_loop(deps): slurmr.raise_exception("Circular dependency detected.")
     stages = slurmr.flatten(deps) # Ordered by dependency
     # The above only contains stages that depend on something or something also depends on
     # Let's just append any others and warn about them
     for ostage in stage_names:
         if ostage not in stages:
-            pprint(HTML(f"<ansiyellow>WARNING: stage {ostage} does not depend on anything, and nothing depends on it. Adding to queue anyway...</ansiyellow>"))
+            fprint(HTML(f"<ansiyellow>WARNING: stage {ostage} does not depend on anything, and nothing depends on it. Adding to queue anyway...</ansiyellow>"))
             stages.append(ostage)
-    if set(stages)!=set(stage_names): raise Exception("Internal error in arranging stages. Please report this bug.")
+    if set(stages)!=set(stage_names): slurmr.raise_exception("Internal error in arranging stages. Please report this bug.")
 
     # Check sanity of skipped stages list
+    if args.skip is None: args.skip = []
     for skipstage in args.skip:
-        if not(skipstage in stages): raise Exception("Asked to skip a stage that is not in the list of stages.")
+        if not(skipstage in stages): slurmr.raise_exception("Asked to skip a stage that is not in the list of stages.")
     
     # Parse arguments and prepare SLURM scripts
-    cstages = config['stages']
 
     if have_slurm or args.force_slurm:
         site = slurmr.detect_site() if args.site is None else args.site
@@ -72,12 +101,12 @@ def main(args):
     jobids = {}
     for stage in stages:
         if stage in args.skip:
-            pprint(HTML(f"<ansiyellow>Skipping stage {stage} as requested.</ansiyellow>"))
-            pprint(HTML(f"<ansiyellow>WARNING: skipped stage {stage} is depended on by others.</ansiyellow>"))
+            fprint(HTML(f"<ansiyellow>Skipping stage {stage} as requested.</ansiyellow>"))
+            fprint(HTML(f"<ansiyellow>WARNING: skipped stage {stage} is depended on by others.</ansiyellow>"))
             continue
-        
+
         # Get command
-        execution,script,pargs = slurmr.get_command(global_vals, cstages, stage)
+        execution,script,pargs = slurmr.get_command(global_vals, copy.deepcopy(ostages), stage)
 
         # Make output directory
         output_dir =  os.path.abspath(os.path.join(proj_dir,stage))
@@ -99,7 +128,7 @@ def main(args):
         
         if have_slurm or args.force_slurm:
             jobid = slurmr.submit_slurm(stage,sbatch_config,
-                                        cstages[stage].get('parallel',None),
+                                        copy.deepcopy(ostages[stage]).get('parallel',None),
                                         execution,script,pargs,
                                         dry_run=args.dry_run,
                                         output_dir=output_dir,
@@ -130,5 +159,5 @@ if __name__ == '__main__':
     parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on cori, use this to select the account that is charged.')
     parser.add_argument("-q","--qos", type=str,  default=None,help='sbatch QOS argument. e.g. on cori, the default is debug, which only provides 30 minutes, so you should explicitly use "--qos regular" on cori.')
     args = parser.parse_args()
-    if args.force_local and args.force_slurm: raise Exception("You can\'t force both local and SLURM.")
+    if args.force_local and args.force_slurm: slurmr.raise_exception("You can\'t force both local and SLURM.")
     main(args)

@@ -1,8 +1,9 @@
 import os,sys,shutil,subprocess,warnings,glob
 import argunparse,yaml,math,time
-from prompt_toolkit import print_formatted_text as pprint, HTML
+from prompt_toolkit import print_formatted_text as fprint, HTML
 import random
 from pathlib import Path
+import pprint
 
 def check_slurm():
     try:
@@ -27,17 +28,22 @@ def get_command(global_vals, stage_configs, stage):
     stage_config = stage_configs[stage]
     execution = stage_config['exec']
     if not(execution in ['python','python3']):
-        raise Exception("Only Python execution "
+        raise_exception("Only Python execution "
                         "is currently supported. "
                         "Shell support will be "
                         "added soon.")
     script_name = stage_config['script']
     global_opts = stage_config.get('globals',[])
-    args = stage_config.get('args',[])
+    args = stage_config.get('args','')
+    if not(isinstance(args,str)): raise_exception(f"args should be a string, comma-separated if there are multiple arguments. It should not be a string. {arts} in {stage} does not satisfy this.")
+    args = args.split(',')
     options = stage_config.get('options',{})
     optkeys = list(options.keys())
     for global_opt in global_opts:
-        if global_opt in optkeys: raise Exception(f"{global_opt} in {stage} config is already a global.")
+        if global_opt in optkeys:
+            pprint.pprint(stage_configs[stage])
+            pprint.pprint(stage)
+            raise_exception(f"{global_opt} in {stage} config is already a global.")
         options[global_opt] = global_vals[global_opt]
     unparser = argunparse.ArgumentUnparser()
     unparsed = unparser.unparse(*args, **options)
@@ -54,7 +60,7 @@ def run_local(cmds,dry_run):
         sp = subprocess.run(cmds,stderr=sys.stderr, stdout=subprocess.PIPE)
         output = sp.stdout.decode("utf-8")
         print(output)
-        if sp.returncode!=0: raise Exception
+        if sp.returncode!=0: raise_exception("Command returned non-zero exit code. See earlier error messages.")
         return output
 
 def detect_site():
@@ -71,9 +77,9 @@ def detect_site():
         warnings.warn('No site specified through --site and did not automatically detect any sites. Using generic SLURM template.')
         sites.append( 'generic' )
     elif len(sites)==1:
-        pprint(HTML(f'<ansiyellow>No site specified through --site; detected <b>{sites[0]}</b> automatically.</ansiyellow>'))
+        fprint(HTML(f'<ansiyellow>No site specified through --site; detected <b>{sites[0]}</b> automatically.</ansiyellow>'))
     else:
-        raise Exception(f"More than one site detected through environment variables: {sites}. Please specificy explicitly through the --site argument.")
+        raise_exception(f"More than one site detected through environment variables: {sites}. Please specificy explicitly through the --site argument.")
     return sites[0]
 
 def get_site_path():
@@ -102,18 +108,18 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
         nproc = parallel_config['nproc']
     except (TypeError,KeyError) as e:
         nproc = 1
-        pprint(HTML(f"<ansiyellow>No stage['parallel']['nproc'] found for {stage}. Assuming number of MPI processes nproc=1.</ansiyellow>"))
+        fprint(HTML(f"<ansiyellow>No stage['parallel']['nproc'] found for {stage}. Assuming number of MPI processes nproc=1.</ansiyellow>"))
 
 
     try:
         memory_gb = parallel_config['memory_gb']
-        if 'threads' in list(parallel_config.keys()): raise Exception("Both memory_gb and threads should not be specified.")
-        if not('memory_per_node_gb' in list(sbatch_config.keys())): raise Exception("Using memory_gb but no memory_per_node_gb in site configuration.")
-        if not('min_threads' in list(parallel_config.keys())): raise Exception("Need min_threads if using memory_gb.")
+        if 'threads' in list(parallel_config.keys()): raise_exception("Both memory_gb and threads should not be specified.")
+        if not('memory_per_node_gb' in list(sbatch_config.keys())): raise_exception("Using memory_gb but no memory_per_node_gb in site configuration.")
+        if not('min_threads' in list(parallel_config.keys())): raise_exception("Need min_threads if using memory_gb.")
         # Maximum number of processes per node
         threads = max(math.ceil(1.*cpn/sbatch_config['memory_per_node_gb']*parallel_config['memory_gb'] ),parallel_config['min_threads'])
         threads = threads + (threads%2)
-        pprint(HTML(f"<ansiyellow>Converted memory {memory_gb} GB to number of threads {threads}.</ansiyellow>"))
+        fprint(HTML(f"<ansiyellow>Converted memory {memory_gb} GB to number of threads {threads}.</ansiyellow>"))
     except (TypeError,KeyError) as e:
         threads = None
 
@@ -122,13 +128,13 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
             threads = parallel_config['threads']
         except (TypeError,KeyError) as e:
             threads = cpn
-            pprint(HTML(f"<ansiyellow>No stage['parallel']['threads'] found for {stage}. Assuming number of OpenMP threads={cpn}.</ansiyellow>"))
+            fprint(HTML(f"<ansiyellow>No stage['parallel']['threads'] found for {stage}. Assuming number of OpenMP threads={cpn}.</ansiyellow>"))
         
     try:
         walltime = parallel_config['walltime']
     except (TypeError,KeyError) as e:
         walltime = "00:15:00"
-        pprint(HTML(f"<ansiyellow>No stage['parallel']['walltime'] found for <b>{stage}</b>. Assuming <b>walltime of {walltime}</b>.</ansiyellow>"))
+        fprint(HTML(f"<ansiyellow>No stage['parallel']['walltime'] found for <b>{stage}</b>. Assuming <b>walltime of {walltime}</b>.</ansiyellow>"))
 
     num_cores = nproc * threads
     num_nodes = int(math.ceil(num_cores/cpn))
@@ -137,7 +143,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     percent_used = num_cores*100./float(totcores)
 
     if percent_used<90.: 
-        pprint(HTML(f"<ansiyellow>Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
+        fprint(HTML(f"<ansiyellow>Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
 
     template = template.replace('!JOBNAME',f'{stage}_{project}')
     template = template.replace('!NODES',str(num_nodes))
@@ -150,9 +156,9 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     template = template.replace('!OUT',os.path.join(output_dir,f'slurm_out_{stage}_{project}_{site}'))
 
     if dry_run:
-        pprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
-        pprint(HTML(f'<skyblue><b>{"".join(["="]*len(stage))}</b></skyblue>'))
-        pprint(HTML(f'<skyblue>{template}</skyblue>'))
+        fprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
+        fprint(HTML(f'<skyblue><b>{"".join(["="]*len(stage))}</b></skyblue>'))
+        fprint(HTML(f'<skyblue>{template}</skyblue>'))
     
     # Get current time in Unix milliseconds to define log directory
     init_time_ms = int(time.time()*1e3)
@@ -190,7 +196,7 @@ def get_info(package=None,path=None,validate=True):
     info = {}
     if package is None:
         if path is None:
-            raise Exception("One of package or path must be specified.")
+            raise_exception("One of package or path must be specified.")
         path = os.path.dirname(path)
         version = None
     else:
@@ -222,10 +228,10 @@ def get_info(package=None,path=None,validate=True):
     else:
         if validate:
             if version is None:
-                raise Exception(f"The provided package or path at {info['path']} neither has"
+                raise_exception(f"The provided package or path at {info['path']} neither has"
                                 " any git information nor version information.")
             if not('site-packages' in path):
-                raise Exception(f"The provided package or path at {info['path']} neither has"
+                raise_exception(f"The provided package or path at {info['path']} neither has"
                                 " any git information nor does it seem to be in a site-packages directory.")
     return info
 
@@ -333,3 +339,7 @@ def has_loop(depdict, seen=None, val=None):
     return False            
             
 
+def raise_exception(message):
+    fprint(HTML(f"<red>{message}</red>"))
+    raise Exception
+    

@@ -6,12 +6,12 @@ globals:
   lmax: 3000
   lmin: 100
 
-gitcheck_pkgs:
-  - numpy
-  - healpy
+# gitcheck_pkgs:
+#   - numpy
+#   - healpy
 
-gitcheck_paths:
-  - ./
+# gitcheck_paths:
+#   - ./
 
 
 stages:
@@ -34,6 +34,27 @@ stages:
       walltime: 00:15:00
       
   
+  stage3loop:
+    exec: python
+    script: example/stage3.py
+    depends:
+      - stage1
+      - stage2
+    globals:
+      - lmin
+      - lmax
+    options:
+      nsims: 32
+    args_loop:
+      - TTTT
+      - TTEE
+      - TETE
+    parallel:
+      nproc: 4
+      memory_gb: 4
+      min_threads: 8
+      walltime: 00:15:00
+
   stage3:
     exec: python
     script: example/stage3.py
@@ -45,19 +66,20 @@ stages:
       - lmax
     options:
       nsims: 32
-    args:
-      - TTTT
+    args: TTTT
     parallel:
       nproc: 4
       memory_gb: 4
       min_threads: 8
       walltime: 00:15:00
 
+    
   stage4:
     exec: python
     script: example/stage4.py
     depends:
       - stage3
+      - stage3loop
     parallel:
       nproc: 1
       threads: 8
