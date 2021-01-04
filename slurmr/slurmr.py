@@ -98,7 +98,9 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
         memory_gb = parallel_config['memory_gb']
         if 'threads' in list(parallel_config.keys()): raise Exception("Both memory_gb and threads should not be specified.")
         if not('memory_per_node_gb' in list(sbatch_config.keys())): raise Exception("Using memory_gb but no memory_per_node_gb in site configuration.")
-        threads = math.ceil(sbatch_config['memory_per_node_gb']*1./parallel_config['memory_gb'] )
+        if not('min_threads' in list(parallel_config.keys())): raise Exception("Need min_threads if using memory_gb.")
+        # Maximum number of processes per node
+        threads = max(math.ceil(1.*cpn/sbatch_config['memory_per_node_gb']*parallel_config['memory_gb'] ),parallel_config['min_threads'])
         threads = threads + (threads%2)
         pprint(HTML(f"<ansiyellow>Converted memory {memory_gb} GB to number of threads {threads}.</ansiyellow>"))
     except (TypeError,KeyError) as e:

@@ -50,6 +50,7 @@ stages:
     parallel:
       nproc: 4
       memory_gb: 4
+      min_threads: 8
       walltime: 00:15:00
 
   stage4:
