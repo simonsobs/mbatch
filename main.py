@@ -85,12 +85,14 @@ def main(args):
         
         if have_slurm or args.force_slurm:
             jobid = slurmr.submit_slurm(stage,sbatch_config,
-                                         cstages[stage].get('parallel',None),
-                                         execution,script,pargs,
-                                         dry_run=args.dry_run,
-                                         output_dir=output_dir,
-                                         project=args.project,
-                                         site=site,depstr=depstr)
+                                        cstages[stage].get('parallel',None),
+                                        execution,script,pargs,
+                                        dry_run=args.dry_run,
+                                        output_dir=output_dir,
+                                        project=args.project,
+                                        site=site,depstr=depstr,
+                                        account=args.account,
+                                        qos=args.qos)
         if not(have_slurm) or args.force_local:
             jobid = slurmr.run_local([execution,script,pargs],dry_run=args.dry_run)
 
@@ -107,6 +109,8 @@ if __name__ == '__main__':
     parser.add_argument("--force-local", action='store_true',help='Force local run.')
     parser.add_argument("--force-slurm", action='store_true',help="Force SLURM. "
                         "If SLURM is not detected and --dry-run is not enabled, this will fail.")
+    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument.')
+    parser.add_argument("-q","--qos", type=str,  default=None,help='sbatch QOS argument.')
     args = parser.parse_args()
     if args.force_local and args.force_slurm: raise Exception("You can\'t force both local and SLURM.")
     main(args)

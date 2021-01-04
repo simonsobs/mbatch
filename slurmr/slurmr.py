@@ -84,7 +84,7 @@ def load_template(site):
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,
-                 depstr=None):
+                 depstr=None,account=None,qos=None):
     cpn = sbatch_config['cores_per_node']
     template = sbatch_config['template']
     try:
@@ -136,7 +136,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     template = template.replace('!THREADS',str(threads))
     cmd = ' '.join([execution,script,pargs])
     template = template.replace('!CMD',cmd)
-    template = template.replace('!OUT',os.path.join(output_dir,f'slurm_out_{stage}'))
+    template = template.replace('!OUT',os.path.join(output_dir,f'slurm_out_{stage}_{project}_{site}'))
 
     if dry_run:
         pprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
@@ -152,6 +152,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     cmds = []
     cmds.append('sbatch')
     cmds.append(f'--parsable')
+    if not(account is None): cmds.append(f'--account={account}')
+    if not(qos is None): cmds.append(f'--qos={qos}')
     if depstr is not None: cmds.append(f'{depstr}')
     cmds.append(fname)
     jobid = run_local(cmds,dry_run).strip()
