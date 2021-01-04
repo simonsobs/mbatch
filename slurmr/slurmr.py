@@ -92,11 +92,25 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     except (TypeError,KeyError) as e:
         nproc = 1
         pprint(HTML(f"<ansiyellow>No stage['parallel']['nproc'] found for {stage}. Assuming number of MPI processes nproc=1.</ansiyellow>"))
+
+
     try:
-        threads = parallel_config['threads']
+        memory_gb = parallel_config['memory_gb']
+        if 'threads' in list(parallel_config.keys()): raise Exception("Both memory_gb and threads should not be specified.")
+        if not('memory_per_node_gb' in list(sbatch_config.keys())): raise Exception("Using memory_gb but no memory_per_node_gb in site configuration.")
+        threads = math.ceil(sbatch_config['memory_per_node_gb']*1./parallel_config['memory_gb'] )
+        threads = threads + (threads%2)
+        pprint(HTML(f"<ansiyellow>Converted memory {memory_gb} GB to number of threads {threads}.</ansiyellow>"))
     except (TypeError,KeyError) as e:
-        threads = cpn
-        pprint(HTML(f"<ansiyellow>No stage['parallel']['threads'] found for {stage}. Assuming number of OpenMP threads={cpn}.</ansiyellow>"))
+        threads = None
+
+    if threads is None:
+        try:
+            threads = parallel_config['threads']
+        except (TypeError,KeyError) as e:
+            threads = cpn
+            pprint(HTML(f"<ansiyellow>No stage['parallel']['threads'] found for {stage}. Assuming number of OpenMP threads={cpn}.</ansiyellow>"))
+        
     try:
         walltime = parallel_config['walltime']
     except (TypeError,KeyError) as e:
@@ -110,7 +124,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     percent_used = num_cores*100./float(totcores)
 
     if percent_used<90.: 
-        pprint(HTML(f"<ansiyellow>warnings.warn(f'Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have <90% of its cores utilized. Reconsider the way you choose your threads..</ansiyellow>"))
+        pprint(HTML(f"<ansiyellow>Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
 
     template = template.replace('!JOBNAME',f'{stage}_{project}')
     template = template.replace('!NODES',str(num_nodes))

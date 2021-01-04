@@ -30,7 +30,7 @@ stages:
       arg2: 1
       flag1: true
     parallel:
-      threads: 80
+      threads: 8
       walltime: 00:15:00
       
   
@@ -49,7 +49,7 @@ stages:
       - TTTT
     parallel:
       nproc: 4
-      threads: 40
+      memory_gb: 4
       walltime: 00:15:00
 
   stage4:
@@ -59,6 +59,6 @@ stages:
       - stage3
     parallel:
       nproc: 1
-      threads: 80
+      threads: 8
       walltime: 00:15:00
     

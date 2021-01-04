@@ -1,5 +1,6 @@
 
 cores_per_node: 64
+memory_per_node_gb: 100
 
 template: |
   #!/bin/bash
