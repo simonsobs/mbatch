@@ -31,7 +31,8 @@ def main(args):
     # Get stages in order of dependencies
     cstages = config['stages']
     stage_names = list(cstages.keys())
-    deps = {}
+    deps = {} # Mapping from stage to its dependencies
+    depended = [] # List of stages that are depended on
     for sname in stage_names:
         ds = cstages[sname].get('depends')
         if ds is not None: 
@@ -40,6 +41,7 @@ def main(args):
                 if d not in stage_names: 
                     pprint(HTML(f"<red>Stage {d} required by {sname} not found in configuration file.</red>"))
                     raise Exception
+                depended.append(d)
 
     if slurmr.has_loop(deps): raise Exception("Circular dependency detected.")
     stages = slurmr.flatten(deps) # Ordered by dependency
@@ -51,11 +53,10 @@ def main(args):
             stages.append(ostage)
     if set(stages)!=set(stage_names): raise Exception("Internal error in arranging stages. Please report this bug.")
 
-    # Make project directory
-    proj_dir = os.path.join(config['root_dir'],args.project)
-    os.makedirs(proj_dir, exist_ok=True)
-
-
+    # Check sanity of skipped stages list
+    for skipstage in args.skip:
+        if not(skipstage in stages): raise Exception("Asked to skip a stage that is not in the list of stages.")
+    
     # Parse arguments and prepare SLURM scripts
     cstages = config['stages']
 
@@ -63,8 +64,18 @@ def main(args):
         site = slurmr.detect_site() if args.site is None else args.site
         sbatch_config = slurmr.load_template(site)
 
+
+    # Make project directory
+    proj_dir = os.path.join(config['root_dir'],args.project)
+    os.makedirs(proj_dir, exist_ok=True)
+        
     jobids = {}
     for stage in stages:
+        if stage in args.skip:
+            pprint(HTML(f"<ansiyellow>Skipping stage {stage} as requested.</ansiyellow>"))
+            pprint(HTML(f"<ansiyellow>WARNING: skipped stage {stage} is depended on by others.</ansiyellow>"))
+            continue
+        
         # Get command
         execution,script,pargs = slurmr.get_command(global_vals, cstages, stage)
 
@@ -78,7 +89,10 @@ def main(args):
         # Construct dependency string
         now_deps = deps.get(stage,[])
         if len(now_deps)>=1:
-            depstr = ':'.join([jobids[s] for s in now_deps])
+            jlist = []
+            for s in now_deps:
+                if not(s in args.skip): jlist.append(jobids[s])
+            depstr = ':'.join(jlist)
             depstr = "--dependency=afterok:" + depstr
         else:
             depstr = None
@@ -112,8 +126,9 @@ if __name__ == '__main__':
     parser.add_argument("--force-local", action='store_true',help='Force local run.')
     parser.add_argument("--force-slurm", action='store_true',help="Force SLURM. "
                         "If SLURM is not detected and --dry-run is not enabled, this will fail.")
-    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument.')
-    parser.add_argument("-q","--qos", type=str,  default=None,help='sbatch QOS argument.')
+    parser.add_argument('--skip', nargs='+', help='List of stages to skip, separated by space. These stages will be skipped even if others depend on them.')
+    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on cori, use this to select the account that is charged.')
+    parser.add_argument("-q","--qos", type=str,  default=None,help='sbatch QOS argument. e.g. on cori, the default is debug, which only provides 30 minutes, so you should explicitly use "--qos regular" on cori.')
     args = parser.parse_args()
     if args.force_local and args.force_slurm: raise Exception("You can\'t force both local and SLURM.")
     main(args)
