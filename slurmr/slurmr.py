@@ -110,7 +110,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     percent_used = num_cores*100./float(totcores)
 
     if percent_used<90.: 
-        pprint(HTML(f"<ansiyellow>warnings.warn(f'Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s), we require {fnodes} nodes. Given that we round up to {nodes} in the request, this means a node will have <90% of its cores utilized. Reconsider the way you choose your threads..</ansiyellow>"))
+        pprint(HTML(f"<ansiyellow>warnings.warn(f'Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {nodes} nodes in the request, this means a node will have <90% of its cores utilized. Reconsider the way you choose your threads..</ansiyellow>"))
 
     template = template.replace('!JOBNAME',f'{stage}_{project}')
     template = template.replace('!NODES',str(num_nodes))
