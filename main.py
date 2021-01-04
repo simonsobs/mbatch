@@ -100,6 +100,9 @@ def main(args):
     
 
 if __name__ == '__main__':
+    if '--show-site-path' in sys.argv:
+        print(slurmr.get_site_path())
+        sys.exit(0)
     parser = argparse.ArgumentParser(description = 'A pipeline script plumbing tool.')
     parser.add_argument('project', help='Name of project.')
     parser.add_argument('config_yaml', help='Path to the configuration file.')

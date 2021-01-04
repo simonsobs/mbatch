@@ -1,7 +1,8 @@
-import os,sys,shutil,subprocess,warnings
+import os,sys,shutil,subprocess,warnings,glob
 import argunparse,yaml,math,time
 from prompt_toolkit import print_formatted_text as pprint, HTML
 import random
+from pathlib import Path
 
 def check_slurm():
     try:
@@ -75,9 +76,19 @@ def detect_site():
         raise Exception(f"More than one site detected through environment variables: {sites}. Please specificy explicitly through the --site argument.")
     return sites[0]
 
-def load_template(site):
+def get_site_path():
+    # First try ~/.slurmr/*.yml
+    home = str(Path.home())
+    homepath = os.path.join(home,".slurmr/*.yml")
+    fs = glob.glob(homepath)
+    if len(fs)>=1: return homepath
+    # Otherwise get path relative to this module
     this_dir, this_filename = os.path.split(__file__)
-    template_path = os.path.join(this_dir, "data", "sites", f"{site}.yml")
+    template_path = os.path.join(this_dir, "data", "sites")
+    return template_path
+
+def load_template(site):
+    template_path = os.path.join(get_site_path(), f"{site}.yml")
     with open(template_path, 'r') as stream:
         sbatch_config = yaml.safe_load(stream)
     return sbatch_config
