@@ -1,4 +1,4 @@
-import os,sys,shutil,subprocess,copy
+import os,sys,shutil,subprocess,copy,shlex
 import argparse
 import warnings
 import yaml
@@ -38,19 +38,23 @@ def main(args):
     unroll_map = {} # dict mapping parent stage name to list of unrolled iterated stage names
     for stage in stage_names:
         # Check if this is a looped stage
-        if 'args_loop' in cstages[stage]:
-            if 'args' in cstages[stage]: slurmr.raise_exception("You can't specify both args and args_loop in the same stage.")
-            unroll_map[stage] = []
-            for k,arg in enumerate(cstages[stage]['args_loop']):
-                new_stage_name = f'{stage}_!loop_iteration_{k}'
-                if new_stage_name in stage_names:
-                    slurmr.raise_exception(f"Internal loop stage name "
-                                    "clashes with {stage}_!loop_iteration_{k}. "
-                                    "Please use a different stage name.")
-                ostages[new_stage_name] = copy.deepcopy(cstages[stage])
-                del ostages[new_stage_name]['args_loop']
-                ostages[new_stage_name]['args'] = cstages[stage]['args_loop'][k]
-                unroll_map[stage].append(new_stage_name)
+        if ('arg' in cstages[stage]):
+            if (type(cstages[stage]['arg'])) in [list,tuple]:
+                unroll_map[stage] = []
+                for k,arg in enumerate(cstages[stage]['arg']):
+                    if len(shlex.split(arg))>1: raise Exception("Argument should not be interpretable as multiple arguments.")
+                    new_stage_name = f'{stage}_{arg}'
+                    if new_stage_name in stage_names:
+                        slurmr.raise_exception(f"Internal loop stage name "
+                                        "clashes with {stage}_!loop_iteration_{k}. "
+                                        "Please use a different stage name.")
+                    ostages[new_stage_name] = copy.deepcopy(cstages[stage])
+                    del ostages[new_stage_name]['arg']
+                    ostages[new_stage_name]['arg'] = cstages[stage]['arg'][k]
+                    unroll_map[stage].append(new_stage_name)
+            else:
+                if len(shlex.split(cstages[stage]['arg']))>1: raise Exception("Argument should not be interpretable as multiple arguments.")
+                ostages[stage] = copy.deepcopy(cstages[stage])
         else:
             ostages[stage] = copy.deepcopy(cstages[stage])
 
@@ -97,7 +101,7 @@ def main(args):
     # Make project directory
     proj_dir = os.path.join(config['root_dir'],args.project)
     os.makedirs(proj_dir, exist_ok=True)
-        
+
     jobids = {}
     for stage in stages:
         if stage in args.skip:
@@ -112,8 +116,6 @@ def main(args):
         output_dir =  os.path.abspath(os.path.join(proj_dir,stage))
         os.makedirs(output_dir, exist_ok=True)
 
-        # Append output directory to arguments
-        pargs = pargs + f' --output-dir {output_dir}'
 
         # Construct dependency string
         now_deps = deps.get(stage,[])
@@ -126,7 +128,7 @@ def main(args):
         else:
             depstr = None
         
-        if have_slurm or args.force_slurm:
+        if (have_slurm or args.force_slurm) and not(args.force_local):
             jobid = slurmr.submit_slurm(stage,sbatch_config,
                                         copy.deepcopy(ostages[stage]).get('parallel',None),
                                         execution,script,pargs,
@@ -137,7 +139,11 @@ def main(args):
                                         account=args.account,
                                         qos=args.qos)
         if not(have_slurm) or args.force_local:
-            jobid = slurmr.run_local([execution,script,pargs],dry_run=args.dry_run)
+            if pargs=='':
+                cmds = [execution,script, '--output-dir',output_dir]
+            else:
+                cmds = [execution,script, pargs, '--output-dir',output_dir]
+            jobid = slurmr.run_local(cmds,dry_run=args.dry_run)
 
         jobids[stage] = jobid
     

@@ -3,7 +3,8 @@ import argunparse,yaml,math,time
 from prompt_toolkit import print_formatted_text as fprint, HTML
 import random
 from pathlib import Path
-import pprint
+from pprint import pprint
+import shlex
 
 def check_slurm():
     try:
@@ -34,24 +35,29 @@ def get_command(global_vals, stage_configs, stage):
                         "added soon.")
     script_name = stage_config['script']
     global_opts = stage_config.get('globals',[])
-    args = stage_config.get('args','')
-    if not(isinstance(args,str)): raise_exception(f"args should be a string, comma-separated if there are multiple arguments. It should not be a string. {arts} in {stage} does not satisfy this.")
-    args = args.split(',')
+    arg = stage_config.get('arg','')
+    if not(isinstance(arg,str)): raise_exception(f"arg should be a string. {artg} in {stage} does not satisfy this.")
+    arg = [arg]
     options = stage_config.get('options',{})
     optkeys = list(options.keys())
     for global_opt in global_opts:
         if global_opt in optkeys:
-            pprint.pprint(stage_configs[stage])
-            pprint.pprint(stage)
+            pprint(stage_configs[stage])
+            pprint(stage)
             raise_exception(f"{global_opt} in {stage} config is already a global.")
         options[global_opt] = global_vals[global_opt]
     unparser = argunparse.ArgumentUnparser()
-    unparsed = unparser.unparse(*args, **options)
+    unparsed = unparser.unparse(*arg, **options)
+    if unparsed=='\"\"' or unparsed=='\'\'': unparsed = ''
     #TODO: check for malicious content in unparsed string since it comes
     #from an external library
     return execution,script_name,unparsed
 
 def run_local(cmds,dry_run):
+    icmds = [c.strip() for c in cmds]
+    cmds = []
+    for c in icmds:
+        cmds = cmds + shlex.split(c)
     print(f"Running {cmds} locally...")
     if dry_run:
         print(' '.join(cmds))
@@ -151,7 +157,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     template = template.replace('!TASKSPERNODE',str(tasks_per_node))
     template = template.replace('!TASKS',str(nproc)) # must come below !TASKSPERNODE
     template = template.replace('!THREADS',str(threads))
-    cmd = ' '.join([execution,script,pargs])
+    cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
+
     template = template.replace('!CMD',cmd)
     template = template.replace('!OUT',os.path.join(output_dir,f'slurm_out_{stage}_{project}_{site}'))
 
