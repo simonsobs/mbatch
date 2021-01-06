@@ -5,6 +5,49 @@ import yaml
 import slurmr
 from prompt_toolkit import print_formatted_text as fprint, HTML
 from pprint import pprint
+
+"""
+Caching
+
+We take a conservative approach to caching and reusing.
+In order for a stage to be reused, three conditions have to be met:
+1. There must be a SLURM output file (or local equivalent) that
+clearly indicates that the most recent job was completed successfully
+2. There must be a saved configuration file in the directory
+that perfectly matches the submitted config for that stage
+3. Git hashes and package versions should match (this can be overriden)
+
+
+To do 1:
+1. we search for get_out_file_root()* in the output directory and pick the last one
+2. we extract the jobid from that
+3. we run
+sacct -j JOBID --format=State --parsable2
+4. This should return
+State
+COMPLETED
+COMPLETED
+...
+or something like that. We check that this is the case.
+
+To do 2:
+When jobs are submitted, we save a config file for that section there and check against it.
+
+
+During submissions, we just need to show a summary like
+
+Stage1               REUSED
+Stage2               SKIPPED
+Stage3               SUBMITTED
+Stage4               SUBMITTED
+
+and do a Y/N confirm on that summary. Skipping should be rare and is done through the --skip
+argument. That will force reuse without doing the above checks.
+
+
+
+
+"""
     
 def main(args):
 

@@ -104,6 +104,9 @@ def load_template(site):
     with open(template_path, 'r') as stream:
         sbatch_config = yaml.safe_load(stream)
     return sbatch_config
+
+def get_out_file_root(output_dir,stage,project,site):
+    return os.path.join(output_dir,f'slurm_out_{stage}_{project}_{site}'
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,
@@ -160,7 +163,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
 
     template = template.replace('!CMD',cmd)
-    template = template.replace('!OUT',os.path.join(output_dir,f'slurm_out_{stage}_{project}_{site}'))
+    template = template.replace('!OUT',get_out_file_root(output_dir,stage,project,site)))
 
     if dry_run:
         fprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
