@@ -91,9 +91,9 @@ def detect_site():
     return sites[0]
 
 def get_site_path():
-    # First try ~/.slurmr/*.yml
+    # First try ~/.mbatch/*.yml
     home = str(Path.home())
-    homepath = os.path.join(home,".slurmr/*.yml")
+    homepath = os.path.join(home,".mbatch/*.yml")
     fs = glob.glob(homepath)
     if len(fs)>=1: return homepath
     # Otherwise get path relative to this module
