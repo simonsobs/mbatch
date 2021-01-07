@@ -225,7 +225,7 @@ def main(args):
         else: sumtxt='<green>[SUBMIT]</green>'
         fprint(HTML(stage+'\t\t'+sumtxt))
 
-    reply = prompt("Should we proceed with this? (Y/n)")
+    reply = prompt("Proceed with this? (Y/n) ")
     reply = reply.strip().upper()
     if reply in ['Y','YES']:
         pass

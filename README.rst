@@ -8,6 +8,20 @@ mbatch
 * OS support: Unix-like (e.g. Linux, Mac OS X, but not Windows)
 * Requires Python >= 3.6
 
+Features
+--------
+
+* Separates projects and stages within projects by automatically creating
+  directory structures
+* Detects cluster computing site, composes ``sbatch`` scripts, assigns
+  dependencies and submits them
+* Logs all information on a per-stage basis, including arguments used for the
+  run, git and package version information, ``slurm`` output and job completion status
+* Based on the logged information, automatically decides whether to re-use
+  certain stages (and not submit them to the queue)
+* Shows a summary of what stages will be re-used and what will be submitted, and
+  prompts user to confirm before proceeding
+
 
 Installing
 ----------
@@ -60,16 +74,22 @@ broken down into stages. Each stage has its own script and outputs its
 products to disk. A stage may depend on the outputs of other stages.
 
 When writing a new pipeline or modifying an existing one to work with
-``mbatch``, only a few things need to be kept in mind:
+``mbatch``, we recommend using the ``argparse`` Python module. Only a few things need to be kept in mind:
 
 * The pipeline stages scripts do *not* need to do any versioning or tagging of individual runs. This is done through
   the ``mbatch`` project name specified for each submission.
 * Every pipeline stage script should accept an argument ``--output-dir``. The user will not have
   to set this argument; it is managed by ``mbatch``.
+* The script should only accept one positional argument: ``mbatch`` allows you
+  to loop over different values of this argument when submitting jobs. Any
+  number of optional arguments can be provided.
 * All of the stage output products should then be stored in the directory pointed to by ``args.output-dir``.
 * If the stage needs products as input from a different stage e.g. with name ``stage1``, they should be obtained from
   ``{args.output_dir}/../stage1/``.
 
 That's it! Once your pipeline scripts have been set up this way, you will need to write a configuration
-file that specifies things like what MPI scheme to use for each stage, what other stages it depends on, etc.
+file that specifies things like what MPI scheme to use for each stage, what
+other stages it depends on, etc.
+
+
 
