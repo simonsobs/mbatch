@@ -2,7 +2,20 @@
 mbatch
 ======
 
-``mbatch`` is a parallelized pipeline script plumbing tool. It aims to be simple; it does *not* aim to be powerful, flexible or automagical e.g. like ``parsl``. It is intended to be of specialized use for SLURM-based hybrid MPI+OpenMP pipelines and emphasizes versioning, reproducibility and controlled caching.  ``mbatch`` aims to provide a quick way to stitch together existing pipeline scripts without requiring significant code changes. A pipeline can be put together using a YAML file that stitches together various stages, where each stage has its own script that outputs products to disk. Unlike more generic pipeline tools (e.g. ``ceci``, ``BBpipe``), dependencies between stages have to be specified manually, and are only used to specify dependencies between SLURM submissions. ``mbatch`` also allows optional checks of the git cleanliness of specified modules, and logs this to aid future reproducibility.
+``mbatch`` is a parallelized pipeline script plumbing tool. It aims to be
+simple; it does *not* aim to be powerful, flexible or automagical e.g. like
+``parsl``. It is intended to be of specialized use for SLURM-based hybrid
+MPI+OpenMP pipelines and emphasizes versioning, reproducibility and controlled
+caching.  ``mbatch`` aims to provide a quick way to stitch together existing
+pipeline scripts without requiring significant code changes. A pipeline can be
+put together using a YAML file that stitches together various stages, where each
+stage has its own script that outputs products to disk. Unlike more generic
+pipeline tools (e.g. ``ceci``, ``BBpipe``), dependencies between stages have to
+be specified manually, and are only used to specify dependencies between SLURM
+submissions; however, this also means far less boilerplate code is needed to make
+your pipeline compatible with this tool. ``mbatch`` also does checks
+of the git cleanliness of specified modules, and logs this to aid future
+reproducibility and automatically decide whether to re-use previously run stages.
 
 * Free software: BSD license
 * OS support: Unix-like (e.g. Linux, Mac OS X, but not Windows)
@@ -13,10 +26,10 @@ Features
 
 * Separates projects and stages within projects by automatically creating
   directory structures
-* Detects cluster computing site, composes ``sbatch`` scripts, assigns
+* Detects cluster computing site, composes appropriate SLURM ``sbatch`` scripts, assigns
   dependencies and submits them
 * Logs all information on a per-stage basis, including arguments used for the
-  run, git and package version information, ``slurm`` output and job completion status
+  run, git and package version information, SLURM output and job completion status
 * Based on the logged information, automatically decides whether to re-use
   certain stages (and not submit them to the queue)
 * Shows a summary of what stages will be re-used and what will be submitted, and
@@ -66,8 +79,8 @@ you can copy the contents of ``~/.local/lib/python3.8/site-packages/mbatch/data/
 (or whatever was the result of the above command) to ``~/.mbatch/``, which is the
 first location that ``mbatch`` looks for site files.
 
-Usage
------
+Pipeline requirements
+---------------------
 
 ``mbatch`` works best with an existing pipeline structure that can be
 broken down into stages. Each stage has its own script and outputs its
