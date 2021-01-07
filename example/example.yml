@@ -1,6 +1,6 @@
 
 
-root_dir: example/output/
+root_dir: output/
 
 globals:
   lmax: 3000
@@ -17,11 +17,11 @@ gitcheck_pkgs:
 stages:
   stage1:
     exec: python
-    script: example/stage1.py
+    script: stage1.py
   
   stage2:
     exec: python
-    script: example/stage2.py
+    script: stage2.py
     globals:
       - lmin
       - lmax
@@ -36,7 +36,7 @@ stages:
   
   stage3loop:
     exec: python
-    script: example/stage3.py
+    script: stage3.py
     depends:
       - stage1
       - stage2
@@ -57,7 +57,7 @@ stages:
 
   stage3:
     exec: python
-    script: example/stage3.py
+    script: stage3.py
     depends:
       - stage1
       - stage2
@@ -76,7 +76,7 @@ stages:
     
   stage4:
     exec: python
-    script: example/stage4.py
+    script: stage4.py
     depends:
       - stage3
       - stage3loop
@@ -87,7 +87,7 @@ stages:
     
   stage5:
     exec: python
-    script: example/stage4.py
+    script: stage4.py
     depends:
       - stage4
     parallel:
