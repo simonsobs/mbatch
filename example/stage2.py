@@ -13,6 +13,6 @@ parser.add_argument("--lmin", type=int,  default=100,help='Minimum multipole.')
 parser.add_argument("--lmax", type=int,  default=3000,help='Maximum multipole.')
 args = parser.parse_args()
 
-time.sleep(10)
+time.sleep(2)
 
 np.savetxt(f'{args.output_dir}/stage2_result.txt',np.random.random((100,100)))

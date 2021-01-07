@@ -18,12 +18,14 @@ def gitcheck(config,cname,package):
         gitchecks = config[cname]
     except:
         gitchecks = []
+    odict = {}
     for pkg in gitchecks:
         #TODO: do something more with ginfo
         ginfo = get_info(package=pkg if package else None,
                                 path=pkg if not(package) else None,
                                 validate=True)
-        print(pretty_info(ginfo))
+        odict[pkg] = ginfo
+    return odict
 
 def get_command(global_vals, stage_configs, stage):
     stage_config = stage_configs[stage]
@@ -53,19 +55,19 @@ def get_command(global_vals, stage_configs, stage):
     #from an external library
     return execution,script_name,unparsed
 
-def run_local(cmds,dry_run):
+def run_local(cmds,dry_run=False,verbose=True):
     icmds = [c.strip() for c in cmds]
     cmds = []
     for c in icmds:
         cmds = cmds + shlex.split(c)
-    print(f"Running {cmds} locally...")
+    if verbose: print(f"Running {cmds} locally...")
     if dry_run:
-        print(' '.join(cmds))
+        if verbose: print(' '.join(cmds))
         return str(random.randint(1,32768))
     else:
         sp = subprocess.run(cmds,stderr=sys.stderr, stdout=subprocess.PIPE)
         output = sp.stdout.decode("utf-8")
-        print(output)
+        if verbose: print(output)
         if sp.returncode!=0: raise_exception("Command returned non-zero exit code. See earlier error messages.")
         return output
 
@@ -105,8 +107,17 @@ def load_template(site):
         sbatch_config = yaml.safe_load(stream)
     return sbatch_config
 
-def get_out_file_root(output_dir,stage,project,site):
-    return os.path.join(output_dir,f'slurm_out_{stage}_{project}_{site}'
+def get_out_file_root(root_dir,stage,project,site):
+    return os.path.join(get_output_dir(root_dir,stage,project),f'slurm_out_{stage}_{project}_{site}')
+
+def get_project_dir(root_dir,project):
+    return os.path.join(root_dir,project)
+
+def get_output_dir(root_dir,stage,project):
+    return os.path.abspath(os.path.join(get_project_dir(root_dir,project),stage))
+
+def get_stage_config_filename(root_dir,stage,project):
+    return os.path.join(get_output_dir(root_dir,stage,project),'stage_config.yml')
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,
@@ -163,7 +174,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
 
     template = template.replace('!CMD',cmd)
-    template = template.replace('!OUT',get_out_file_root(output_dir,stage,project,site)))
+    template = template.replace('!OUT',get_out_file_root(output_dir,stage,project,site))
 
     if dry_run:
         fprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
