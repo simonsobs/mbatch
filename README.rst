@@ -39,7 +39,7 @@ Features
 Installing
 ----------
 
-First, you should pip install ``mbatch``, either off PyPI:
+First, you should pip install ``mbatch``, either off PyPI (currently not implemented, use git clone below):
 
 .. code-block:: console
 		
@@ -310,7 +310,6 @@ described in the comments below:
 			     walltime: 00:15:00
 						
 
-						
 We can run this pipeline configuration with `mbatch`. Here is how it looks when run locally (not on a remote system that has SLURM installed):
 
 .. code-block:: bash
@@ -329,8 +328,10 @@ We can run this pipeline configuration with `mbatch`. Here is how it looks when 
 		stage5     [SUBMIT]
 		Proceed with this? (Y/n)
 
+	
+which shows a summary of the stages that will be reused or submitted (in a first run where no products exist, all will be submitted). You will receive a prompt to confirm the submission.
 
-`mbatch` has detected that all stages need to be run (because no previous outputs exist),
+Here, `mbatch` has detected that all stages need to be run (because no previous outputs exist),
 and asks us to confirm the submission. After proceeding and the commands have completed
 (in serial execution, since we are trying this locally), the directory structure now looks like:
 
@@ -370,3 +371,12 @@ and asks us to confirm the submission. After proceeding and the commands have co
 		├── stage2.py
 		├── stage3.py
 		└── stage4.py
+
+
+For more information on running mbatch, use
+
+.. code-block:: bash
+
+	mbatch -h
+
+
