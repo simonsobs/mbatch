@@ -105,4 +105,17 @@ file that specifies things like what MPI scheme to use for each stage, what
 other stages it depends on, etc.
 
 
+Example
+-------
+
+Let's go over the simple example in the `example/` directory of mbatch's Github
+repository. To try out the example yourself, you will have to clone the
+repository as explained earlier.
+
+.. code-block:: bash
+				$ cd example
+				$ ls
+
+
+
 
