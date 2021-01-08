@@ -183,7 +183,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     
     # Get current time in Unix milliseconds to define log directory
     init_time_ms = int(time.time()*1e3)
-    fname = os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
+    fname = get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms)
     if not(dry_run):
         with open(fname,'w') as f:
             f.write(template)
@@ -199,6 +199,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     return jobid
         
 
+def get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms):
+    return os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
 
 # In actsims also currently, but this should be its final home
 def pretty_info(info):
@@ -666,13 +668,15 @@ def main():
                 cmds = [execution,script, '--output-dir',output_dir]
             else:
                 cmds = [execution,script, pargs, '--output-dir',output_dir]
-            jobid = run_local(cmds,dry_run=args.dry_run)
+            run_local(cmds,dry_run=args.dry_run)
 
         if not(args.dry_run):
             out_dict = {}
             out_dict['stage'] = {stage: copy.deepcopy(ostages[stage])}
             out_dict['stage']['pkg_gitdict'] = pkg_gitdict
             out_dict['stage']['pth_gitdict'] = pth_gitdict
+            init_time_ms = int(time.time()*1e3) # Save time when it was saved
+            out_dict['stage']['time'] = init_time_ms
             with open(get_stage_config_filename(root_dir,stage,args.project), 'w') as f:
                 yaml.dump(out_dict, f, default_flow_style=False)
 
