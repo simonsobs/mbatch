@@ -110,8 +110,8 @@ def load_template(site):
 def get_out_file_root(root_dir,stage,project,site):
     return os.path.join(get_output_dir(root_dir,stage,project),f'slurm_out_{stage}_{project}_{site}')
 
-def get_local_out_file(root_dir,stage,project):
-    return os.path.join(get_output_dir(root_dir,stage,project),f'local_out_{stage}_{project}_state.txt')
+def get_local_out_file(root_dir,stage,project,jobid):
+    return os.path.join(get_output_dir(root_dir,stage,project),f'local_out_{stage}_{project}_state_{jobid}.txt')
 
 
 def get_project_dir(root_dir,project):
@@ -120,8 +120,8 @@ def get_project_dir(root_dir,project):
 def get_output_dir(root_dir,stage,project):
     return os.path.abspath(os.path.join(get_project_dir(root_dir,project),stage))
 
-def get_stage_config_filename(root_dir,stage,project):
-    return os.path.join(get_output_dir(root_dir,stage,project),'stage_config.yml')
+def get_stage_config_filename(root_dir,stage,project,jobid):
+    return os.path.join(get_output_dir(root_dir,stage,project),f'stage_config_{jobid}.yml')
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,
@@ -557,12 +557,14 @@ def main():
                             completed = False
                             break
 
+            # Also check for local run completed outputs
+                        
             if not(completed): continue
 
 
             # Next check if dictionaries match
             try:
-                with open(get_stage_config_filename(root_dir,stage,args.project), 'r') as stream:
+                with open(get_stage_config_filename(root_dir,stage,args.project,last_job), 'r') as stream:
                     saved_config = yaml.safe_load(stream)
             except:
                 fprint(HTML(f"<ansiyellow>Could not find saved configuration for {stage} even though completed job was detected. Will not re-use this stage.</ansiyellow>"))
@@ -672,9 +674,11 @@ def main():
                 cmds = [execution,script, '--output-dir',output_dir]
             else:
                 cmds = [execution,script, pargs, '--output-dir',output_dir]
-            jobid = run_local(cmds,dry_run=args.dry_run)
+            run_local(cmds,dry_run=args.dry_run)
+            # Get current time in Unix milliseconds and use that as jobid
+            jobid = str(int(time.time()*1e3))
             # Save job completion confirmation
-            with open(get_local_out_file(root_dir,stage,project),'w') as f:
+            with open(get_local_out_file(root_dir,stage,args.project,jobid),'w') as f:
                 f.write('COMPLETED')
 
         if not(args.dry_run):
@@ -682,7 +686,7 @@ def main():
             out_dict['stage'] = {stage: copy.deepcopy(ostages[stage])}
             out_dict['stage']['pkg_gitdict'] = pkg_gitdict
             out_dict['stage']['pth_gitdict'] = pth_gitdict
-            with open(get_stage_config_filename(root_dir,stage,args.project), 'w') as f:
+            with open(get_stage_config_filename(root_dir,stage,args.project,jobid), 'w') as f:
                 yaml.dump(out_dict, f, default_flow_style=False)
 
         jobids[stage] = jobid
