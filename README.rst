@@ -184,6 +184,132 @@ have changed will subseqently influence whether previously completed stages
 are re-used. `gitcheck_paths` is similar, but instead of specifying
 a package, you specify a path to a directory that is under git version control.
 In this example `./` will refer to the `mbatch` repository itself.
+
+
+Finally, in example.yml we see the definition of the pipeline stages, which are
+described in the comments below:
+
+
+.. code-block:: bash
+
+# This structure will contain all the pipeline stage
+# definitions. The order in which the stages are listed
+# below does not matter, but the `depends` section in
+# each stage will influence the order in which they are
+# actually queued.
+stages:
+
+  # This first stage named `stage1` uses the python executable to run
+  # stage1.py (in the same directory). It passes no arguments (no globals
+  # either). And since it doesn't have a `parallel` section, it uses
+  # default options, including requesting only a walltime of 15 minutes.
+  # It does not depend on any other stages either, so it won't wait in
+  # the queue for others to finish.
+  stage1:
+    exec: python
+    script: stage1.py
+  
+  # This stage named `stage2` also doesn't depend on others and thus won't
+  # wait, but it (a) does specify that we should pass the global variables
+  # as optional arguments to stage2.py. It also passes a few other options
+  # to the script. It does not pass any positional arguments.
+  # It also explicitly says to use 8 OpenMP threads and
+  # requests 15 minutes of walltime.
+  stage2:
+    exec: python
+    script: stage2.py
+    globals:
+      - lmin
+      - lmax
+    options:
+      arg1: 0
+      arg2: 1
+      flag1: true
+    parallel:
+      threads: 8
+      walltime: 00:15:00
+      
+  
+  # This stage named `stage3` depends on stage1 and stage2, so it will
+  # only start after stage1 and stage2 have successfully completed with
+  # exit code zero. In addition to passing globals and the optional argument
+  # "nsims", it also passes one positional argument "TTTT" specified through
+  # the "arg" keyword.
+  # In the ``parallel`` section we request nproc=4 MPI processes. As an
+  # alternative to specifying the exact number of OpenMP threads, we provide
+  # an estimate for the maximum memory each process will use memory_gb and
+  # the minimum number of threads to use. Based on the memory available on
+  # a single node at the computing site and the number of cores per node,
+  # mbatch will use an even number of threads = max(min_threads,
+  # cores_per_node/memory_per node * memory_gb). 
+  stage3:
+    exec: python
+    script: stage3.py
+    depends:
+      - stage1
+      - stage2
+    globals:
+      - lmin
+      - lmax
+    options:
+      nsims: 32
+    arg: TTTT
+    parallel:
+      nproc: 4
+      memory_gb: 4
+      min_threads: 8
+      walltime: 00:15:00
+
+  # This stage named `stage3loop` is similar to `stage3` but
+  # it provides a list for `arg`. This will create N copies
+  # of this stage, each of which loop the positional argument
+  # over the N elements of the list specified by `arg`.
+  stage3loop:
+    exec: python
+    script: stage3.py
+    depends:
+      - stage1
+      - stage2
+    globals:
+      - lmin
+      - lmax
+    options:
+      nsims: 32
+    arg:
+      - TTTT
+      - TTEE
+      - TETE
+    parallel:
+      nproc: 4
+      memory_gb: 4
+      min_threads: 8
+      walltime: 00:15:00
+
+  # Another stage that depends on a previous one
+  stage4:
+    exec: python
+    script: stage4.py
+    depends:
+      - stage3
+      - stage3loop
+    parallel:
+      nproc: 1
+      threads: 8
+      walltime: 00:15:00
+    
+  # Another stage that depends on stage4, but uses
+  # the same script as did stage4.
+  stage5:
+    exec: python
+    script: stage4.py
+    depends:
+      - stage4
+    parallel:
+      nproc: 1
+      threads: 8
+      walltime: 00:15:00
+    
+
     
 
 
