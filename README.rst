@@ -310,7 +310,20 @@ described in the comments below:
 			     walltime: 00:15:00
 						
 
-						
+We can then submit the project using 
+
+.. code-block:: bash
+
+	mbatch foo example.yml
+	
+	
+which will show a summary of the stages that will be reused or submitted (in a first run where no products exist, all will be submitted). You will receive a prompt to confirm the submission.
+
+For more information on running mbatch, use
+
+.. code-block:: bash
+
+	mbatch -h
 
 
 
