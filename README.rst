@@ -370,4 +370,3 @@ and asks us to confirm the submission. After proceeding and the commands have co
 		├── stage2.py
 		├── stage3.py
 		└── stage4.py
-
