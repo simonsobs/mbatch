@@ -337,38 +337,37 @@ and asks us to confirm the submission. After proceeding and the commands have co
 
 .. code-block:: bash
 
-
-$ tree .
-.
-├── example.yml
-├── output
-│   └── foo
-│       ├── stage1
-│       │   ├── stage1_result.txt
-│       │   └── stage_config.yml
-│       ├── stage2
-│       │   ├── stage2_result.txt
-│       │   └── stage_config.yml
-│       ├── stage3
-│       │   ├── stage3_result_TTTT.txt
-│       │   └── stage_config.yml
-│       ├── stage3loop_TETE
-│       │   ├── stage3_result_TETE.txt
-│       │   └── stage_config.yml
-│       ├── stage3loop_TTEE
-│       │   ├── stage3_result_TTEE.txt
-│       │   └── stage_config.yml
-│       ├── stage3loop_TTTT
-│       │   ├── stage3_result_TTTT.txt
-│       │   └── stage_config.yml
-│       ├── stage4
-│       │   ├── stage4_result.txt
-│       │   └── stage_config.yml
-│       └── stage5
-│           ├── stage4_result.txt
-│           └── stage_config.yml
-├── stage1.py
-├── stage2.py
-├── stage3.py
-└── stage4.py
+		$ tree .
+		.
+		├── example.yml
+		├── output
+		│   └── foo
+		│       ├── stage1
+		│       │   ├── stage1_result.txt
+		│       │   └── stage_config.yml
+		│       ├── stage2
+		│       │   ├── stage2_result.txt
+		│       │   └── stage_config.yml
+		│       ├── stage3
+		│       │   ├── stage3_result_TTTT.txt
+		│       │   └── stage_config.yml
+		│       ├── stage3loop_TETE
+		│       │   ├── stage3_result_TETE.txt
+		│       │   └── stage_config.yml
+		│       ├── stage3loop_TTEE
+		│       │   ├── stage3_result_TTEE.txt
+		│       │   └── stage_config.yml
+		│       ├── stage3loop_TTTT
+		│       │   ├── stage3_result_TTTT.txt
+		│       │   └── stage_config.yml
+		│       ├── stage4
+		│       │   ├── stage4_result.txt
+		│       │   └── stage_config.yml
+		│       └── stage5
+		│           ├── stage4_result.txt
+		│           └── stage_config.yml
+		├── stage1.py
+		├── stage2.py
+		├── stage3.py
+		└── stage4.py
 
