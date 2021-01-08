@@ -110,6 +110,10 @@ def load_template(site):
 def get_out_file_root(root_dir,stage,project,site):
     return os.path.join(get_output_dir(root_dir,stage,project),f'slurm_out_{stage}_{project}_{site}')
 
+def get_local_out_file(root_dir,stage,project):
+    return os.path.join(get_output_dir(root_dir,stage,project),f'local_out_{stage}_{project}_state.txt')
+
+
 def get_project_dir(root_dir,project):
     return os.path.join(root_dir,project)
 
@@ -669,6 +673,9 @@ def main():
             else:
                 cmds = [execution,script, pargs, '--output-dir',output_dir]
             jobid = run_local(cmds,dry_run=args.dry_run)
+            # Save job completion confirmation
+            with open(get_local_out_file(root_dir,stage,project),'w') as f:
+                f.write('COMPLETED')
 
         if not(args.dry_run):
             out_dict = {}
