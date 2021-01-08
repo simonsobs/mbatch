@@ -520,6 +520,8 @@ def main():
     if have_slurm or args.force_slurm:
         site = detect_site() if args.site is None else args.site
         sbatch_config = load_template(site)
+    else:
+        site = 'local'
 
     ###########################
     reuse_stages = []

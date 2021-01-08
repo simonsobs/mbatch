@@ -311,6 +311,64 @@ described in the comments below:
 						
 
 						
+We can run this pipeline configuration with `mbatch`. Here is how it looks when run locally (not on a remote system that has SLURM installed):
+
+.. code-block:: bash
+
+		$ mbatch foo example.yml
+		No SLURM detected. We will be locally executing commands serially.
+		We are doing a dry run, so we will just print to screen.
+		SUMMARY FOR SUBMISSION OF PROJECT foo
+		stage1     [SUBMIT]
+		stage2     [SUBMIT]
+		stage3     [SUBMIT]
+		stage3loop_TTTT    [SUBMIT]
+		stage3loop_TTEE    [SUBMIT]
+		stage3loop_TETE    [SUBMIT]
+		stage4     [SUBMIT]
+		stage5     [SUBMIT]
+		Proceed with this? (Y/n)
 
 
+`mbatch` has detected that all stages need to be run (because no previous outputs exist),
+and asks us to confirm the submission. After proceeding and the commands have completed
+(in serial execution, since we are trying this locally), the directory structure now looks like:
+
+
+.. code-block:: bash
+
+
+$ tree .
+.
+├── example.yml
+├── output
+│   └── foo
+│       ├── stage1
+│       │   ├── stage1_result.txt
+│       │   └── stage_config.yml
+│       ├── stage2
+│       │   ├── stage2_result.txt
+│       │   └── stage_config.yml
+│       ├── stage3
+│       │   ├── stage3_result_TTTT.txt
+│       │   └── stage_config.yml
+│       ├── stage3loop_TETE
+│       │   ├── stage3_result_TETE.txt
+│       │   └── stage_config.yml
+│       ├── stage3loop_TTEE
+│       │   ├── stage3_result_TTEE.txt
+│       │   └── stage_config.yml
+│       ├── stage3loop_TTTT
+│       │   ├── stage3_result_TTTT.txt
+│       │   └── stage_config.yml
+│       ├── stage4
+│       │   ├── stage4_result.txt
+│       │   └── stage_config.yml
+│       └── stage5
+│           ├── stage4_result.txt
+│           └── stage_config.yml
+├── stage1.py
+├── stage2.py
+├── stage3.py
+└── stage4.py
 
