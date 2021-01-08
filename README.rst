@@ -117,7 +117,11 @@ stage1.py, stage2.py, stage3.py, stage4.py that contain rudimentary example
 pipeline stages that may or may not read some inputs and save output data to disk.
 
 For this example, we will create a directory called `output` that will hold
-any output data.
+any output data. `mbatch` works by submitting a set of scripts using SLURM's
+`sbatch` and asking for outputs from these scripts to be organized into
+separate stage directories for each script, which are all under the same "project"
+directory. The `output` directory we make here will be the root (parent) directory
+for any projects we submit for this example.
 
 .. code-block:: bash
 
@@ -137,6 +141,50 @@ any output data.
 We also see an example configuration file example.yml which will
 be the input for `mbatch` that stitches together these stage scripts.
 
-Let's examine example.yml closely.
+Let's examine example.yml closely. The YAML file includes the following:
+
+.. code-block:: bash
+
+		root_dir: output/
+
+
+This indicates that the root directory for any projects run with this configuration
+file will be `output/`.  A project with name "foo", for example, will then go into
+the directory `output/foo/` and outputs of pipeline stages of this project will go
+into sub-directories of `output/foo/`.
+
+Next up in `example.yml` we see
+
+.. code-block:: bash
+
+		globals:
+		    lmax: 3000
+		    lmin: 100
+
+
+This defines two arguments that are global to all pipeline stages. These
+arguments can then be referenced by any pipeline stage that we wish to make
+it accessible to. More on this later.
+
+Further down in `example.yml` we see
+
+.. code-block:: bash
+
+		gitcheck_pkgs:
+		    - numpy
+		    - scipy
+
+		gitcheck_paths:
+		    - ./
+		      
+
+`gitcheck_pkgs`: This directs `mbatch` to log the git status (commit hash, branch, etc.)
+and/or package version of the listed Python packages. Whether these packages
+have changed will subseqently influence whether previously completed stages
+are re-used. `gitcheck_paths` is similar, but instead of specifying
+a package, you specify a path to a directory that is under git version control.
+In this example `./` will refer to the `mbatch` repository itself.
+    
+
 
 
