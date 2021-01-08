@@ -112,10 +112,31 @@ Let's go over the simple example in the `example/` directory of mbatch's Github
 repository. To try out the example yourself, you will have to clone the
 repository as explained earlier.
 
+We change into the example directory where there are a set of Python scripts
+stage1.py, stage2.py, stage3.py, stage4.py that contain rudimentary example
+pipeline stages that may or may not read some inputs and save output data to disk.
+
+For this example, we will create a directory called `output` that will hold
+any output data.
+
 .. code-block:: bash
-				$ cd example
-				$ ls
+
+		$ cd example
+		$ mkdir output
+		$ ls
+		
+		example
+		├── output/
+		├── stage1.py
+		├── stage2.py
+		├── stage3.py
+		├── stage4.py
+		└── example.yml
 
 
+We also see an example configuration file example.yml which will
+be the input for `mbatch` that stitches together these stage scripts.
+
+Let's examine example.yml closely.
 
 
