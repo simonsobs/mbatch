@@ -39,7 +39,7 @@ Features
 Installing
 ----------
 
-First, you should pip install ``mbatch``, either off PyPI:
+First, you should pip install ``mbatch``, either off PyPI (currently not implemented, use git clone below):
 
 .. code-block:: console
 		
