@@ -105,4 +105,212 @@ file that specifies things like what MPI scheme to use for each stage, what
 other stages it depends on, etc.
 
 
+Example
+-------
+
+Let's go over the simple example in the `example/` directory of mbatch's Github
+repository. To try out the example yourself, you will have to clone the
+repository as explained earlier.
+
+We change into the example directory where there are a set of Python scripts
+stage1.py, stage2.py, stage3.py, stage4.py that contain rudimentary example
+pipeline stages that may or may not read some inputs and save output data to disk.
+
+For this example, we will create a directory called `output` that will hold
+any output data. `mbatch` works by submitting a set of scripts using SLURM's
+`sbatch` and asking for outputs from these scripts to be organized into
+separate stage directories for each script, which are all under the same "project"
+directory. The `output` directory we make here will be the root (parent) directory
+for any projects we submit for this example.
+
+.. code-block:: bash
+
+		$ cd example
+		$ mkdir output
+		$ ls
+		
+		example
+		├── output/
+		├── stage1.py
+		├── stage2.py
+		├── stage3.py
+		├── stage4.py
+		└── example.yml
+
+
+We also see an example configuration file example.yml which will
+be the input for `mbatch` that stitches together these stage scripts.
+
+Let's examine example.yml closely. The YAML file includes the following:
+
+.. code-block:: bash
+
+		root_dir: output/
+
+
+This indicates that the root directory for any projects run with this configuration
+file will be `output/`.  A project with name "foo", for example, will then go into
+the directory `output/foo/` and outputs of pipeline stages of this project will go
+into sub-directories of `output/foo/`.
+
+Next up in `example.yml` we see
+
+.. code-block:: bash
+
+		globals:
+		    lmax: 3000
+		    lmin: 100
+
+
+This defines two arguments that are global to all pipeline stages. These
+arguments can then be referenced by any pipeline stage that we wish to make
+it accessible to. More on this later.
+
+Further down in `example.yml` we see
+
+.. code-block:: bash
+
+		gitcheck_pkgs:
+		    - numpy
+		    - scipy
+
+		gitcheck_paths:
+		    - ./
+		      
+
+`gitcheck_pkgs`: This directs `mbatch` to log the git status (commit hash, branch, etc.)
+and/or package version of the listed Python packages. Whether these packages
+have changed will subseqently influence whether previously completed stages
+are re-used. `gitcheck_paths` is similar, but instead of specifying
+a package, you specify a path to a directory that is under git version control.
+In this example `./` will refer to the `mbatch` repository itself.
+
+
+Finally, in example.yml we see the definition of the pipeline stages, which are
+described in the comments below:
+
+
+.. code-block:: bash
+
+		# This structure will contain all the pipeline stage
+		# definitions. The order in which the stages are listed
+		# below does not matter, but the `depends` section in
+		# each stage will influence the order in which they are
+		# actually queued.
+		stages:
+
+		# This first stage named `stage1` uses the python executable to run
+		# stage1.py (in the same directory). It passes no arguments (no globals
+		# either). And since it doesn't have a `parallel` section, it uses
+		# default options, including requesting only a walltime of 15 minutes.
+		# It does not depend on any other stages either, so it won't wait in
+		# the queue for others to finish.
+		stage1:
+		exec: python
+		script: stage1.py
+		
+		# This stage named `stage2` also doesn't depend on others and thus won't
+		# wait, but it (a) does specify that we should pass the global variables
+		# as optional arguments to stage2.py. It also passes a few other options
+		# to the script. It does not pass any positional arguments.
+		# It also explicitly says to use 8 OpenMP threads and
+		# requests 15 minutes of walltime.
+		stage2:
+		exec: python
+		script: stage2.py
+		globals:
+		- lmin
+		  - lmax
+		    options:
+		    arg1: 0
+		    arg2: 1
+		    flag1: true
+		    parallel:
+		    threads: 8
+		    walltime: 00:15:00
+		    
+		    
+		    # This stage named `stage3` depends on stage1 and stage2, so it will
+		    # only start after stage1 and stage2 have successfully completed with
+		    # exit code zero. In addition to passing globals and the optional argument
+		    # "nsims", it also passes one positional argument "TTTT" specified through
+		    # the "arg" keyword.
+		    # In the ``parallel`` section we request nproc=4 MPI processes. As an
+		    # alternative to specifying the exact number of OpenMP threads, we provide
+		    # an estimate for the maximum memory each process will use memory_gb and
+		    # the minimum number of threads to use. Based on the memory available on
+		    # a single node at the computing site and the number of cores per node,
+		    # mbatch will use an even number of threads = max(min_threads,
+		    # cores_per_node/memory_per node * memory_gb). 
+		    stage3:
+		    exec: python
+		    script: stage3.py
+		    depends:
+		    - stage1
+		      - stage2
+			globals:
+			- lmin
+			  - lmax
+			    options:
+			    nsims: 32
+			    arg: TTTT
+			    parallel:
+			    nproc: 4
+			    memory_gb: 4
+			    min_threads: 8
+			    walltime: 00:15:00
+
+			    # This stage named `stage3loop` is similar to `stage3` but
+			    # it provides a list for `arg`. This will create N copies
+			    # of this stage, each of which loop the positional argument
+			    # over the N elements of the list specified by `arg`.
+			    stage3loop:
+			    exec: python
+			    script: stage3.py
+			    depends:
+			    - stage1
+			      - stage2
+				globals:
+				- lmin
+				  - lmax
+				    options:
+				    nsims: 32
+				    arg:
+				    - TTTT
+				      - TTEE
+					- TETE
+					  parallel:
+					  nproc: 4
+					  memory_gb: 4
+					  min_threads: 8
+					  walltime: 00:15:00
+
+					  # Another stage that depends on a previous one
+					  stage4:
+					  exec: python
+					  script: stage4.py
+					  depends:
+					  - stage3
+					    - stage3loop
+					      parallel:
+					      nproc: 1
+					      threads: 8
+					      walltime: 00:15:00
+					      
+					      # Another stage that depends on stage4, but uses
+					      # the same script as did stage4.
+					      stage5:
+					      exec: python
+					      script: stage4.py
+					      depends:
+					      - stage4
+						parallel:
+						nproc: 1
+						threads: 8
+						walltime: 00:15:00
+						
+
+						
+
+
 
