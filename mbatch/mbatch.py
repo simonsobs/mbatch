@@ -6,6 +6,33 @@ from pathlib import Path
 from pprint import pprint
 import argparse
 
+"""
+Files produced:
+e.g. project foo, stages bar1, bar2
+
+# SLURM
+foo
+  bar1
+     slurm_out_{stage}_{project}_{site}_{slurm)_{jobid}.txt # SLURM output, used to extract job id
+     stage_config_{jobid}.yml # config file, contains time as well
+
+# LOCAL
+foo
+  bar1
+     local_out_{stage}_{project}_state_{jobid}.txt # completion status for local run, jobid is time when job finished
+     stage_config_{jobid}.yml # config file, contains time as well (different from above)
+
+
+
+"""
+
+def argmax(iterable):
+    return max(enumerate(iterable), key=lambda x: x[1])[0]
+
+def sint(x):
+    if x.strip()=='': return 0
+    return int(x)
+
 def check_slurm():
     try:
         ret = subprocess.run(["sbatch","-V"])
@@ -110,8 +137,8 @@ def load_template(site):
 def get_out_file_root(root_dir,stage,project,site):
     return os.path.join(get_output_dir(root_dir,stage,project),f'slurm_out_{stage}_{project}_{site}')
 
-def get_local_out_file(root_dir,stage,project,jobid):
-    return os.path.join(get_output_dir(root_dir,stage,project),f'local_out_{stage}_{project}_state_{jobid}.txt')
+def get_local_out_file(root_dir,stage,project):
+    return os.path.join(get_output_dir(root_dir,stage,project),f'local_out_{stage}_{project}_state')
 
 
 def get_project_dir(root_dir,project):
@@ -187,7 +214,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     
     # Get current time in Unix milliseconds to define log directory
     init_time_ms = int(time.time()*1e3)
-    fname = os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
+    fname = get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms)
     if not(dry_run):
         with open(fname,'w') as f:
             f.write(template)
@@ -203,6 +230,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     return jobid
         
 
+def get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms):
+    return os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
 
 # In actsims also currently, but this should be its final home
 def pretty_info(info):
@@ -532,6 +561,10 @@ def main():
 
     if not(args.no_reuse):
         # We decide which ones to resume here
+        last_time = 0
+        last_time_local = 0
+        last_job = None
+        last_job_local = None
         for stage in stages:
             # We check if the last submitted job (if it exists) was completed
             # TODO: add check for local runs, not just sbatch
@@ -541,7 +574,7 @@ def main():
             if len(fs)==0:
                 completed = False
             else:
-                last_job = max([int(re.search(rf'{root}(.*?){suffix}', f).group(1)) for f in fs])
+                last_job = max([sint(re.search(rf'{root}(.*?){suffix}', f).group(1)) for f in fs])
                 output = run_local(['sacct', '-j',
                                            str(last_job), '--format=State',
                                            '--parsable2'],
@@ -557,10 +590,31 @@ def main():
                             completed = False
                             break
 
-            # Also check for local run completed outputs
-                        
-            if not(completed): continue
+            if completed:
+                # Get time, to compare with possible completed local run
+                with open(get_stage_config_filename(root_dir,stage,args.project,last_job), 'r') as stream:
+                    last_time = yaml.safe_load(stream)['stage']['time']
 
+
+            # Also check for local run completed outputs
+            root = get_local_out_file(root_dir,stage,args.project) + "_"
+            suffix = ".txt"
+            fs = glob.glob(root + "*" + suffix)
+            completed_local = False
+            if len(fs)!=0:
+                last_job_local = max([sint(re.search(rf'{root}(.*?){suffix}', f).group(1)) for f in fs])
+                with open(get_local_out_file(root_dir,stage,args.project)+f"_{last_job_local}.txt",'r') as f:
+                    cstatus = f.read().strip()
+                if cstatus=='COMPLETED':
+                    completed_local = True
+                    with open(get_stage_config_filename(root_dir,stage,args.project,last_job_local), 'r') as stream:
+                        last_time_local = yaml.safe_load(stream)['stage']['time']
+
+            if completed or completed_local:
+                last_job = [last_job,last_job_local][argmax([last_time,last_time_local])]
+                if last_job is None: raise_exception("Error in last completed job detection. Report bug.")
+            else:
+                continue
 
             # Next check if dictionaries match
             try:
@@ -598,9 +652,8 @@ def main():
             if not(stage in deps): continue
             redo = False
             for d in deps[stage]:
-                if d in reuse_stages: redo = True
+                if not(d in reuse_stages) and not(d in args.skip): redo = True
             if redo: reuse_stages.remove(stage)
-            
             
     # A summary and a prompt
     print(f"SUMMARY FOR SUBMISSION OF PROJECT {args.project}")
@@ -675,10 +728,11 @@ def main():
             else:
                 cmds = [execution,script, pargs, '--output-dir',output_dir]
             run_local(cmds,dry_run=args.dry_run)
+            
             # Get current time in Unix milliseconds and use that as jobid
             jobid = str(int(time.time()*1e3))
             # Save job completion confirmation
-            with open(get_local_out_file(root_dir,stage,args.project,jobid),'w') as f:
+            with open(get_local_out_file(root_dir,stage,args.project)+f"_{jobid}.txt",'w') as f:
                 f.write('COMPLETED')
 
         if not(args.dry_run):
@@ -686,6 +740,8 @@ def main():
             out_dict['stage'] = {stage: copy.deepcopy(ostages[stage])}
             out_dict['stage']['pkg_gitdict'] = pkg_gitdict
             out_dict['stage']['pth_gitdict'] = pth_gitdict
+            init_time_ms = int(time.time()*1e3) # Save time when it was saved
+            out_dict['stage']['time'] = init_time_ms
             with open(get_stage_config_filename(root_dir,stage,args.project,jobid), 'w') as f:
                 yaml.dump(out_dict, f, default_flow_style=False)
 
