@@ -151,7 +151,7 @@ def get_stage_config_filename(root_dir,stage,project,jobid):
     return os.path.join(get_output_dir(root_dir,stage,project),f'stage_config_{jobid}.yml')
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
-                 script,pargs,dry_run,output_dir,site,project,
+                 script,pargs,dry_run,output_dir,site,project,root_dir,
                  depstr=None,account=None,qos=None):
     cpn = sbatch_config['cores_per_node']
     template = sbatch_config['template']
@@ -205,7 +205,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
 
     template = template.replace('!CMD',cmd)
-    template = template.replace('!OUT',get_out_file_root(output_dir,stage,project,site))
+    template = template.replace('!OUT',get_out_file_root(root_dir,stage,project,site))
 
     if dry_run:
         fprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
@@ -714,14 +714,14 @@ def main():
         
         if is_sbatch:
             jobid = submit_slurm(stage,sbatch_config,
-                                        copy.deepcopy(ostages[stage]).get('parallel',None),
-                                        execution,script,pargs,
-                                        dry_run=args.dry_run,
-                                        output_dir=output_dir,
-                                        project=args.project,
-                                        site=site,depstr=depstr,
-                                        account=args.account,
-                                        qos=args.qos)
+                                 copy.deepcopy(ostages[stage]).get('parallel',None),
+                                 execution,script,pargs,
+                                 dry_run=args.dry_run,
+                                 output_dir=output_dir,
+                                 project=args.project,
+                                 site=site,root_dir=root_dir,depstr=depstr,
+                                 account=args.account,
+                                 qos=args.qos)
         if is_local:
             if pargs=='':
                 cmds = [execution,script, '--output-dir',output_dir]
