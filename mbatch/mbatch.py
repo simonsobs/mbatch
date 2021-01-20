@@ -26,6 +26,38 @@ foo
 
 """
 
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
+
 def argmax(iterable):
     return max(enumerate(iterable), key=lambda x: x[1])[0]
 
@@ -66,7 +98,7 @@ def get_command(global_vals, stage_configs, stage):
     global_opts = stage_config.get('globals',[])
     arg = stage_config.get('arg','')
     if not(isinstance(arg,str)): raise_exception(f"arg should be a string. {artg} in {stage} does not satisfy this.")
-    arg = [arg]
+    arg = [arg] if arg!='' else []
     options = stage_config.get('options',{})
     optkeys = list(options.keys())
     for global_opt in global_opts:
@@ -664,14 +696,9 @@ def main():
         else: sumtxt='<green>[SUBMIT]</green>'
         fprint(HTML(stage+'\t\t'+sumtxt))
 
-    reply = prompt("Proceed with this? (Y/n) ")
-    reply = reply.strip().upper()
-    if reply in ['Y','YES']:
-        pass
-    elif reply in ['N','NO']:
+    reply = query_yes_no("Proceed with this?")
+    if not(reply):
         sys.exit(0)
-    else:
-        raise_exception("Invalid input.")
 
         
     # Make project directory

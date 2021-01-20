@@ -3,7 +3,6 @@ import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser(description = 'stage2.')
-parser.add_argument('estimator', help='Name of estimator.')
 parser.add_argument("--output-dir", type=str,  default=None,help='Output direactory.')
 parser.add_argument("--nsims", type=int,  default=1,help='Number of simulations.')
 parser.add_argument("--flag1", action='store_true',help='A flag.')
