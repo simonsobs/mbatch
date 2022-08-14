@@ -130,11 +130,14 @@ def run_local(cmds,dry_run=False,verbose=True):
         if sp.returncode!=0: raise_exception("Command returned non-zero exit code. See earlier error messages.")
         return output
 
+# This function is mirrored in github.com/msyriac/scripts/mpi
 def detect_site():
     sites = []
     env_check = os.environ.get('CLUSTER',None)
     if env_check=='niagara':
         sites.append( 'niagara' )
+    elif env_check=='symmetry':
+        sites.append( 'symmetry' )
         
     env_check = os.environ.get('NERSC_HOST',None)
     if env_check=='cori':
@@ -598,6 +601,7 @@ def main():
         last_job = None
         last_job_local = None
         for stage in stages:
+            print(f"Checking {stage}...")
             # We check if the last submitted job (if it exists) was completed
             # TODO: add check for local runs, not just sbatch
             root = get_out_file_root(root_dir,stage,args.project,site) + "_"
@@ -605,6 +609,7 @@ def main():
             fs = glob.glob(root + "*" + suffix)
             if len(fs)==0:
                 completed = False
+                print("No output file found")
             else:
                 last_job = max([sint(re.search(rf'{root}(.*?){suffix}', f).group(1)) for f in fs])
                 output = run_local(['sacct', '-j',
@@ -620,8 +625,9 @@ def main():
                     else:
                         if line.strip()!='COMPLETED':
                             completed = False
+                            print("COMPLETED string not found")
                             break
-
+                            
             if completed:
                 # Get time, to compare with possible completed local run
                 with open(get_stage_config_filename(root_dir,stage,args.project,last_job), 'r') as stream:
@@ -641,7 +647,7 @@ def main():
                     completed_local = True
                     with open(get_stage_config_filename(root_dir,stage,args.project,last_job_local), 'r') as stream:
                         last_time_local = yaml.safe_load(stream)['stage']['time']
-
+            
             if completed or completed_local:
                 last_job = [last_job,last_job_local][argmax([last_time,last_time_local])]
                 if last_job is None: raise_exception("Error in last completed job detection. Report bug.")
@@ -664,8 +670,14 @@ def main():
 
             # Next we check if there are git differences
             if not(args.ignore_git):
-                if saved_config['stage']['pkg_gitdict']!=pkg_gitdict: continue
-                if saved_config['stage']['pth_gitdict']!=pth_gitdict: continue
+                if saved_config['stage']['pkg_gitdict']!=pkg_gitdict: 
+                    print(saved_config['stage']['pkg_gitdict'])
+                    print(pkg_gitdict)
+                    print("Package git changed; not reusing")
+                    continue
+                if saved_config['stage']['pth_gitdict']!=pth_gitdict: 
+                    print("Path git changed; not reusing")
+                    continue
 
             # We made it this far, which means this stage can be reused
             reuse_stages.append(stage)
