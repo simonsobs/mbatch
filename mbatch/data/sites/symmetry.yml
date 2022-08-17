@@ -1,0 +1,53 @@
+
+default_constraint: None
+default_part: amdq
+default_qos: None
+default_account: None
+architecture:
+  None:
+    amdq:
+      cores_per_node: 64
+      memory_per_node_gb: 220
+    amddebugq:
+      cores_per_node: 64
+      memory_per_node_gb: 220
+    defq:
+      cores_per_node: 80
+      memory_per_node_gb: 180
+    debugq:
+      cores_per_node: 80
+      memory_per_node_gb: 180
+    gpuq:
+      cores_per_node: 8
+      gpus_per_node: 4
+      memory_per_node_gb: 90
+    gpudebugq:
+      cores_per_node: 8
+      gpus_per_node: 4
+      memory_per_node_gb: 90
+
+
+template: |
+  #!/bin/bash
+  #SBATCH --nodes=!NODES!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #SBATCH --time=!WALL
+  #SBATCH --ntasks-per-node=!TASKSPERNODE
+  #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --job-name=!JOBNAME
+  #SBATCH --output=!OUT_%j.txt
+  #SBATCH --mail-type=FAIL
+  #SBATCH --mail-user=mathewsyriac@gmail.com
+
+  cd $SLURM_SUBMIT_DIR
+  export DISABLE_MPI=false
+
+  module load anaconda3
+  module load slurm
+  module load compiler
+  module load mpi
+  module load icc
+  module load mkl
+
+  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+  srun !CMD

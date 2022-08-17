@@ -130,7 +130,6 @@ def run_local(cmds,dry_run=False,verbose=True):
         if sp.returncode!=0: raise_exception("Command returned non-zero exit code. See earlier error messages.")
         return output
 
-# This function is mirrored in github.com/msyriac/scripts/mpi
 def detect_site():
     sites = []
     env_check = os.environ.get('CLUSTER',None)
@@ -184,11 +183,23 @@ def get_output_dir(root_dir,stage,project):
 
 def get_stage_config_filename(root_dir,stage,project,jobid):
     return os.path.join(get_output_dir(root_dir,stage,project),f'stage_config_{jobid}.yml')
-    
+
+
+def _get_default(config,name,arg):
+    if not(arg is None):
+        return arg
+    else:
+        return config[f'default_{name}']
+        
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,root_dir,
-                 depstr=None,account=None,qos=None):
-    cpn = sbatch_config['cores_per_node']
+                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+    constraint = _get_default(sbatch_config,'constraint',constraint)
+    qos = _get_default(sbatch_config,'qos',qos)
+    partition = _get_default(sbatch_config,'part',partition)
+    account = _get_default(sbatch_config,'account',account)
+    print(constraint,partition)
+    cpn = sbatch_config['architecture'][constraint][partition]['cores_per_node']
     template = sbatch_config['template']
     try:
         nproc = parallel_config['nproc']
@@ -200,10 +211,10 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     try:
         memory_gb = parallel_config['memory_gb']
         if 'threads' in list(parallel_config.keys()): raise_exception("Both memory_gb and threads should not be specified.")
-        if not('memory_per_node_gb' in list(sbatch_config.keys())): raise_exception("Using memory_gb but no memory_per_node_gb in site configuration.")
+        if not('memory_per_node_gb' in list(sbatch_config['architecture'][constraint][partition].keys())): raise_exception("Using memory_gb but no memory_per_node_gb in site configuration.")
         if not('min_threads' in list(parallel_config.keys())): raise_exception("Need min_threads if using memory_gb.")
         # Maximum number of processes per node
-        threads = max(math.ceil(1.*cpn/sbatch_config['memory_per_node_gb']*parallel_config['memory_gb'] ),parallel_config['min_threads'])
+        threads = max(math.ceil(1.*cpn/sbatch_config['architecture'][constraint][partition]['memory_per_node_gb']*parallel_config['memory_gb'] ),parallel_config['min_threads'])
         threads = threads + (threads%2)
         fprint(HTML(f"<ansiyellow>Converted memory {memory_gb} GB to number of threads {threads}.</ansiyellow>"))
     except (TypeError,KeyError) as e:
@@ -239,7 +250,15 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     template = template.replace('!THREADS',str(threads))
     cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
 
+    def _parse_none(string, pre):
+        if string.lower().strip()=='none': return ''
+        else: return f'\n#SBATCH --{pre}={string}'
+        
     template = template.replace('!CMD',cmd)
+    template = template.replace('!ACCOUNT',_parse_none(account,'account'))
+    template = template.replace('!CONSTRAINT',_parse_none(constraint,'constraint'))
+    template = template.replace('!QOS',_parse_none(qos,'qos'))
+    template = template.replace('!PARTITION',_parse_none(partition,'partition'))
     template = template.replace('!OUT',get_out_file_root(root_dir,stage,project,site))
 
     if dry_run:
@@ -256,8 +275,6 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     cmds = []
     cmds.append('sbatch')
     cmds.append(f'--parsable')
-    if not(account is None): cmds.append(f'--account={account}')
-    if not(qos is None): cmds.append(f'--qos={qos}')
     if depstr is not None: cmds.append(f'{depstr}')
     cmds.append(fname)
     jobid = run_local(cmds,dry_run).strip()
@@ -493,7 +510,9 @@ def main():
                         "If SLURM is not detected and --dry-run is not enabled, this will fail.")
     parser.add_argument('--skip', nargs='+', help='List of stages to skip, separated by space. These stages will be skipped even if others depend on them.')
     parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on cori, use this to select the account that is charged.')
-    parser.add_argument("-q","--qos", type=str,  default=None,help='sbatch QOS argument. e.g. on cori, the default is debug, which only provides 30 minutes, so you should explicitly use "--qos regular" on cori.')
+    parser.add_argument("-q", "--qos",     type=str,  default=None,help="QOS name")
+    parser.add_argument("-p", "--partition",     type=str,  default=None,help="Partition name")
+    parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
     args = parser.parse_args()
     if args.force_local and args.force_slurm: raise_exception("You can\'t force both local and SLURM.")
 
@@ -760,7 +779,9 @@ def main():
                                  project=args.project,
                                  site=site,root_dir=root_dir,depstr=depstr,
                                  account=args.account,
-                                 qos=args.qos)
+                                 qos=args.qos,
+                                 partition=args.partition,
+                                 constraint=args.constraint)
         if is_local:
             if pargs=='':
                 cmds = [execution,script, '--output-dir',output_dir]

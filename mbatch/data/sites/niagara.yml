@@ -1,9 +1,16 @@
 
-cores_per_node: 80
-memory_per_node_gb: 180
+default_constraint: None
+default_part: None
+default_qos: None
+default_account: None
+architecture:
+  None:
+    None:
+      cores_per_node: 80
+      memory_per_node_gb: 180
 
 template: |
-  #!/bin/bash
+  #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
   #SBATCH --nodes=!NODES
   #SBATCH --time=!WALL
   #SBATCH --ntasks-per-node=!TASKSPERNODE
