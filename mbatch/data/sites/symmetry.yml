@@ -28,10 +28,10 @@ architecture:
 
 
 template: |
-  #!/bin/bash
-  #SBATCH --nodes=!NODES!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #SBATCH --nodes=!NODES
+  #SBATCH --ntasks=!TASKS
   #SBATCH --time=!WALL
-  #SBATCH --ntasks-per-node=!TASKSPERNODE
   #SBATCH --cpus-per-task=!THREADS
   #SBATCH --job-name=!JOBNAME
   #SBATCH --output=!OUT_%j.txt
@@ -48,6 +48,6 @@ template: |
   module load icc
   module load mkl
 
-  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+  export OMP_NUM_THREADS=!THREADS
 
-  srun !CMD
+  mpirun !CMD
