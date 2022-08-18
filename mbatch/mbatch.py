@@ -185,7 +185,7 @@ def get_stage_config_filename(root_dir,stage,project,jobid):
     return os.path.join(get_output_dir(root_dir,stage,project),f'stage_config_{jobid}.yml')
 
 
-def _get_default(config,name,arg):
+def get_default(config,name,arg):
     if not(arg is None):
         return arg
     else:
@@ -194,19 +194,20 @@ def _get_default(config,name,arg):
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,root_dir,
                  depstr=None,account=None,qos=None,partition=None,constraint=None):
-    constraint = _get_default(sbatch_config,'constraint',constraint)
-    qos = _get_default(sbatch_config,'qos',qos)
-    partition = _get_default(sbatch_config,'part',partition)
-    account = _get_default(sbatch_config,'account',account)
+
+    constraint = get_default(sbatch_config,'constraint',constraint)
+    qos = get_default(sbatch_config,'qos',qos)
+    partition = get_default(sbatch_config,'part',partition)
+    account = get_default(sbatch_config,'account',account)
     print(constraint,partition)
     cpn = sbatch_config['architecture'][constraint][partition]['cores_per_node']
     template = sbatch_config['template']
+    cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
     try:
         nproc = parallel_config['nproc']
     except (TypeError,KeyError) as e:
         nproc = 1
         fprint(HTML(f"<ansiyellow>No stage['parallel']['nproc'] found for {stage}. Assuming number of MPI processes nproc=1.</ansiyellow>"))
-
 
     try:
         memory_gb = parallel_config['memory_gb']
@@ -233,6 +234,16 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
         walltime = "00:15:00"
         fprint(HTML(f"<ansiyellow>No stage['parallel']['walltime'] found for <b>{stage}</b>. Assuming <b>walltime of {walltime}</b>.</ansiyellow>"))
 
+    name = f'{stage}_{project}'
+    out_file_root = get_out_file_root(root_dir,stage,project,site)
+    sbatch_file_root = get_sbatch_script_file_root(output_dir,project,stage,site)
+    return submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,
+                             output_dir,site,out_file_root,sbatch_file_root,
+                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint)
+
+def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,output_dir,site,out_file_root,sbatch_file_root,
+                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+
     num_cores = nproc * threads
     num_nodes = int(math.ceil(num_cores/cpn))
     totcores = num_nodes * cpn
@@ -240,15 +251,14 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     percent_used = num_cores*100./float(totcores)
 
     if percent_used<90.: 
-        fprint(HTML(f"<ansiyellow>Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
+        fprint(HTML(f"<ansiyellow>Submission {name} with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
 
-    template = template.replace('!JOBNAME',f'{stage}_{project}')
+    template = template.replace('!JOBNAME',name)
     template = template.replace('!NODES',str(num_nodes))
     template = template.replace('!WALL',walltime)
     template = template.replace('!TASKSPERNODE',str(tasks_per_node))
     template = template.replace('!TASKS',str(nproc)) # must come below !TASKSPERNODE
     template = template.replace('!THREADS',str(threads))
-    cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
 
     def _parse_none(string, pre):
         if string.lower().strip()=='none': return ''
@@ -259,16 +269,16 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     template = template.replace('!CONSTRAINT',_parse_none(constraint,'constraint'))
     template = template.replace('!QOS',_parse_none(qos,'qos'))
     template = template.replace('!PARTITION',_parse_none(partition,'partition'))
-    template = template.replace('!OUT',get_out_file_root(root_dir,stage,project,site))
+    template = template.replace('!OUT',out_file_root)
 
     if dry_run:
-        fprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
-        fprint(HTML(f'<skyblue><b>{"".join(["="]*len(stage))}</b></skyblue>'))
+        fprint(HTML(f'<skyblue><b>{name}</b></skyblue>'))
+        fprint(HTML(f'<skyblue><b>{"".join(["="]*len(name))}</b></skyblue>'))
         fprint(HTML(f'<skyblue>{template}</skyblue>'))
     
     # Get current time in Unix milliseconds to define log directory
     init_time_ms = int(time.time()*1e3)
-    fname = get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms)
+    fname = f'{sbatch_file_root}_{init_time_ms}.sh'
     if not(dry_run):
         with open(fname,'w') as f:
             f.write(template)
@@ -282,8 +292,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     return jobid
         
 
-def get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms):
-    return os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
+def get_sbatch_script_file_root(output_dir,project,stage,site):
+    return os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}')
 
 # In actsims also currently, but this should be its final home
 def pretty_info(info):

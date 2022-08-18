@@ -380,3 +380,43 @@ For more information on running mbatch, use
 	mbatch -h
 
 
+Wrapper for OpenMP+MPI jobs
+---------------------------
+
+``mbatch`` now includes a wrapper ``wmpi`` for hybrid OpenMP+MPI jobs that are not part
+of a pipeline. Here's how to use it:
+
+.. code-block:: bash
+
+		
+	usage: wmpi [-h] [-d DEPENDENCIES] [-o OUTPUT_DIR] [-t THREADS] [-s SITE]
+		    [-n NAME] [-A ACCOUNT] [-q QOS] [-p PARTITION] [-c CONSTRAINT]
+		    [-w WALLTIME] [--dry-run]
+		    N Command
+
+	Submit hybrid OpenMP+MPI jobs
+
+	positional arguments:
+	  N                     Number of MPI jobs
+	  Command               Command
+
+	optional arguments:
+	  -h, --help            show this help message and exit
+	  -d DEPENDENCIES, --dependencies DEPENDENCIES
+				Comma separated list of dependency JOBIDs
+	  -o OUTPUT_DIR, --output-dir OUTPUT_DIR
+				Output directory
+	  -t THREADS, --threads THREADS
+				Number of threads
+	  -s SITE, --site SITE  Site name (optional; will auto-detect if not provided)
+	  -n NAME, --name NAME  Job name
+	  -A ACCOUNT, --account ACCOUNT
+				Account name
+	  -q QOS, --qos QOS     QOS name
+	  -p PARTITION, --partition PARTITION
+				Partition name
+	  -c CONSTRAINT, --constraint CONSTRAINT
+				Constraint name
+	  -w WALLTIME, --walltime WALLTIME
+				Walltime
+	  --dry-run             Only show submissions.
