@@ -420,3 +420,5 @@ of a pipeline. Here's how to use it:
 	  -w WALLTIME, --walltime WALLTIME
 				Walltime
 	  --dry-run             Only show submissions.
+
+`mbatch` will then pick a template for an `sbatch` configuration file by detecting what cluster computer you are using (only NERSC, niagara and Perimeter's Symmetry are currently supported), populate this template and submit it using `sbatch`. The idea behind this wrapper is that you won't have to think too much about which cluster you are on (beyond the core counts).
