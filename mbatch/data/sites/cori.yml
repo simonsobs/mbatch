@@ -23,7 +23,7 @@ template: |
   #SBATCH --cpus-per-task=!THREADS
   #SBATCH --output=!OUT_%j.txt
   #SBATCH --mail-type=FAIL
-  #SBATCH --mail-user=mathewsyriac@gmail.com
+  #SBATCH --mail-user=
 
   export DISABLE_MPI=false
   export OMP_PROC_BIND=true

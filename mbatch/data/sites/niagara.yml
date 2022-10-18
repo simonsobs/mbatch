@@ -18,7 +18,7 @@ template: |
   #SBATCH --job-name=!JOBNAME
   #SBATCH --output=!OUT_%j.txt
   #SBATCH --mail-type=FAIL
-  #SBATCH --mail-user=mathewsyriac@gmail.com
+  #SBATCH --mail-user=
 
   cd $SLURM_SUBMIT_DIR
   export DISABLE_MPI=false
