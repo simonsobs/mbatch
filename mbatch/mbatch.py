@@ -135,6 +135,8 @@ def detect_site():
     env_check = os.environ.get('CLUSTER',None)
     if env_check=='niagara':
         sites.append( 'niagara' )
+    elif env_check=='symmetry':
+        sites.append( 'symmetry' )
         
     env_check = os.environ.get('NERSC_HOST',None)
     if env_check=='cori':
@@ -181,26 +183,39 @@ def get_output_dir(root_dir,stage,project):
 
 def get_stage_config_filename(root_dir,stage,project,jobid):
     return os.path.join(get_output_dir(root_dir,stage,project),f'stage_config_{jobid}.yml')
-    
+
+
+def get_default(config,name,arg):
+    if not(arg is None):
+        return arg
+    else:
+        return config[f'default_{name}']
+        
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,root_dir,
-                 depstr=None,account=None,qos=None):
-    cpn = sbatch_config['cores_per_node']
+                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+
+    constraint = get_default(sbatch_config,'constraint',constraint)
+    qos = get_default(sbatch_config,'qos',qos)
+    partition = get_default(sbatch_config,'part',partition)
+    account = get_default(sbatch_config,'account',account)
+    print(constraint,partition)
+    cpn = sbatch_config['architecture'][constraint][partition]['cores_per_node']
     template = sbatch_config['template']
+    cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
     try:
         nproc = parallel_config['nproc']
     except (TypeError,KeyError) as e:
         nproc = 1
         fprint(HTML(f"<ansiyellow>No stage['parallel']['nproc'] found for {stage}. Assuming number of MPI processes nproc=1.</ansiyellow>"))
 
-
     try:
         memory_gb = parallel_config['memory_gb']
         if 'threads' in list(parallel_config.keys()): raise_exception("Both memory_gb and threads should not be specified.")
-        if not('memory_per_node_gb' in list(sbatch_config.keys())): raise_exception("Using memory_gb but no memory_per_node_gb in site configuration.")
+        if not('memory_per_node_gb' in list(sbatch_config['architecture'][constraint][partition].keys())): raise_exception("Using memory_gb but no memory_per_node_gb in site configuration.")
         if not('min_threads' in list(parallel_config.keys())): raise_exception("Need min_threads if using memory_gb.")
         # Maximum number of processes per node
-        threads = max(math.ceil(1.*cpn/sbatch_config['memory_per_node_gb']*parallel_config['memory_gb'] ),parallel_config['min_threads'])
+        threads = max(math.ceil(1.*cpn/sbatch_config['architecture'][constraint][partition]['memory_per_node_gb']*parallel_config['memory_gb'] ),parallel_config['min_threads'])
         threads = threads + (threads%2)
         fprint(HTML(f"<ansiyellow>Converted memory {memory_gb} GB to number of threads {threads}.</ansiyellow>"))
     except (TypeError,KeyError) as e:
@@ -219,6 +234,16 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
         walltime = "00:15:00"
         fprint(HTML(f"<ansiyellow>No stage['parallel']['walltime'] found for <b>{stage}</b>. Assuming <b>walltime of {walltime}</b>.</ansiyellow>"))
 
+    name = f'{stage}_{project}'
+    out_file_root = get_out_file_root(root_dir,stage,project,site)
+    sbatch_file_root = get_sbatch_script_file_root(output_dir,project,stage,site)
+    return submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,
+                             output_dir,site,out_file_root,sbatch_file_root,
+                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint)
+
+def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,output_dir,site,out_file_root,sbatch_file_root,
+                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+
     num_cores = nproc * threads
     num_nodes = int(math.ceil(num_cores/cpn))
     totcores = num_nodes * cpn
@@ -226,35 +251,40 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     percent_used = num_cores*100./float(totcores)
 
     if percent_used<90.: 
-        fprint(HTML(f"<ansiyellow>Stage {stage}: with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
+        fprint(HTML(f"<ansiyellow>Submission {name} with {nproc} MPI process(es) and {threads} thread(s) and {num_nodes} nodes in the request, this means a node will have less than 90% of its cores utilized. Reconsider the way you choose your thread count or number of processes.</ansiyellow>"))
 
-    template = template.replace('!JOBNAME',f'{stage}_{project}')
+    template = template.replace('!JOBNAME',name)
     template = template.replace('!NODES',str(num_nodes))
     template = template.replace('!WALL',walltime)
     template = template.replace('!TASKSPERNODE',str(tasks_per_node))
     template = template.replace('!TASKS',str(nproc)) # must come below !TASKSPERNODE
     template = template.replace('!THREADS',str(threads))
-    cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
 
+    def _parse_none(string, pre):
+        if string.lower().strip()=='none': return ''
+        else: return f'\n#SBATCH --{pre}={string}'
+        
     template = template.replace('!CMD',cmd)
-    template = template.replace('!OUT',get_out_file_root(root_dir,stage,project,site))
+    template = template.replace('!ACCOUNT',_parse_none(account,'account'))
+    template = template.replace('!CONSTRAINT',_parse_none(constraint,'constraint'))
+    template = template.replace('!QOS',_parse_none(qos,'qos'))
+    template = template.replace('!PARTITION',_parse_none(partition,'partition'))
+    template = template.replace('!OUT',out_file_root)
 
     if dry_run:
-        fprint(HTML(f'<skyblue><b>{stage}</b></skyblue>'))
-        fprint(HTML(f'<skyblue><b>{"".join(["="]*len(stage))}</b></skyblue>'))
+        fprint(HTML(f'<skyblue><b>{name}</b></skyblue>'))
+        fprint(HTML(f'<skyblue><b>{"".join(["="]*len(name))}</b></skyblue>'))
         fprint(HTML(f'<skyblue>{template}</skyblue>'))
     
     # Get current time in Unix milliseconds to define log directory
     init_time_ms = int(time.time()*1e3)
-    fname = get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms)
+    fname = f'{sbatch_file_root}_{init_time_ms}.sh'
     if not(dry_run):
         with open(fname,'w') as f:
             f.write(template)
     cmds = []
     cmds.append('sbatch')
     cmds.append(f'--parsable')
-    if not(account is None): cmds.append(f'--account={account}')
-    if not(qos is None): cmds.append(f'--qos={qos}')
     if depstr is not None: cmds.append(f'{depstr}')
     cmds.append(fname)
     jobid = run_local(cmds,dry_run).strip()
@@ -262,8 +292,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     return jobid
         
 
-def get_sbatch_script_filename(output_dir,project,stage,site,init_time_ms):
-    return os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}_{init_time_ms}.sh')
+def get_sbatch_script_file_root(output_dir,project,stage,site):
+    return os.path.join(f'{output_dir}',f'slurm_submission_{project}_{stage}_{site}')
 
 # In actsims also currently, but this should be its final home
 def pretty_info(info):
@@ -490,7 +520,9 @@ def main():
                         "If SLURM is not detected and --dry-run is not enabled, this will fail.")
     parser.add_argument('--skip', nargs='+', help='List of stages to skip, separated by space. These stages will be skipped even if others depend on them.')
     parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on cori, use this to select the account that is charged.')
-    parser.add_argument("-q","--qos", type=str,  default=None,help='sbatch QOS argument. e.g. on cori, the default is debug, which only provides 30 minutes, so you should explicitly use "--qos regular" on cori.')
+    parser.add_argument("-q", "--qos",     type=str,  default=None,help="QOS name")
+    parser.add_argument("-p", "--partition",     type=str,  default=None,help="Partition name")
+    parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
     args = parser.parse_args()
     if args.force_local and args.force_slurm: raise_exception("You can\'t force both local and SLURM.")
 
@@ -598,6 +630,7 @@ def main():
         last_job = None
         last_job_local = None
         for stage in stages:
+            print(f"Checking {stage}...")
             # We check if the last submitted job (if it exists) was completed
             # TODO: add check for local runs, not just sbatch
             root = get_out_file_root(root_dir,stage,args.project,site) + "_"
@@ -605,6 +638,7 @@ def main():
             fs = glob.glob(root + "*" + suffix)
             if len(fs)==0:
                 completed = False
+                print("No output file found")
             else:
                 last_job = max([sint(re.search(rf'{root}(.*?){suffix}', f).group(1)) for f in fs])
                 output = run_local(['sacct', '-j',
@@ -620,8 +654,9 @@ def main():
                     else:
                         if line.strip()!='COMPLETED':
                             completed = False
+                            print("COMPLETED string not found")
                             break
-
+                            
             if completed:
                 # Get time, to compare with possible completed local run
                 with open(get_stage_config_filename(root_dir,stage,args.project,last_job), 'r') as stream:
@@ -641,7 +676,7 @@ def main():
                     completed_local = True
                     with open(get_stage_config_filename(root_dir,stage,args.project,last_job_local), 'r') as stream:
                         last_time_local = yaml.safe_load(stream)['stage']['time']
-
+            
             if completed or completed_local:
                 last_job = [last_job,last_job_local][argmax([last_time,last_time_local])]
                 if last_job is None: raise_exception("Error in last completed job detection. Report bug.")
@@ -664,8 +699,14 @@ def main():
 
             # Next we check if there are git differences
             if not(args.ignore_git):
-                if saved_config['stage']['pkg_gitdict']!=pkg_gitdict: continue
-                if saved_config['stage']['pth_gitdict']!=pth_gitdict: continue
+                if saved_config['stage']['pkg_gitdict']!=pkg_gitdict: 
+                    print(saved_config['stage']['pkg_gitdict'])
+                    print(pkg_gitdict)
+                    print("Package git changed; not reusing")
+                    continue
+                if saved_config['stage']['pth_gitdict']!=pth_gitdict: 
+                    print("Path git changed; not reusing")
+                    continue
 
             # We made it this far, which means this stage can be reused
             reuse_stages.append(stage)
@@ -748,7 +789,9 @@ def main():
                                  project=args.project,
                                  site=site,root_dir=root_dir,depstr=depstr,
                                  account=args.account,
-                                 qos=args.qos)
+                                 qos=args.qos,
+                                 partition=args.partition,
+                                 constraint=args.constraint)
         if is_local:
             if pargs=='':
                 cmds = [execution,script, '--output-dir',output_dir]
