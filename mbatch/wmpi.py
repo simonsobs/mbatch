@@ -31,6 +31,7 @@ def main():
     partition = mbatch.get_default(sbatch_config,'part',args.partition)
     account = mbatch.get_default(sbatch_config,'account',args.account)
     cpn = sbatch_config['architecture'][constraint][partition]['cores_per_node']
+    tpc = mbatch.get_tpc(sbatch_config,constraint,partition)
     out_file_root = os.path.join(args.output_dir,f'slurm_out_{args.name}_{site}')
     sbatch_file_root = os.path.join(f'{output_dir}',f'slurm_submission_{args.name}_{site}')
     if not(args.dependencies is None):
@@ -41,4 +42,4 @@ def main():
         depstr = None
     mbatch.submit_slurm_core(template,args.name,args.Command,args.N,cpn,args.threads,args.walltime,args.dry_run,
                       args.output_dir,site,out_file_root,sbatch_file_root,
-                      depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint)
+                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc)

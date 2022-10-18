@@ -190,7 +190,15 @@ def get_default(config,name,arg):
         return arg
     else:
         return config[f'default_{name}']
-        
+
+def get_tpc(sbatch_config,constraint,partition):
+    try:
+        tpc = sbatch_config['architecture'][constraint][partition]['threads_per_core']
+    except:
+        fprint(HTML(f"<ansiyellow>WARNING: Number of threads per core not specified. Assuming hyperthreading by factor 2x ...</ansiyellow>"))
+        tpc = 2
+    return tpc
+    
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,root_dir,
                  depstr=None,account=None,qos=None,partition=None,constraint=None):
@@ -199,8 +207,8 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     qos = get_default(sbatch_config,'qos',qos)
     partition = get_default(sbatch_config,'part',partition)
     account = get_default(sbatch_config,'account',account)
-    print(constraint,partition)
     cpn = sbatch_config['architecture'][constraint][partition]['cores_per_node']
+    tpc = get_tpc(sbatch_config,constraint,partition)
     template = sbatch_config['template']
     cmd = ' '.join([execution,script,pargs]) + f' --output-dir {output_dir}'
     try:
@@ -239,10 +247,10 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     sbatch_file_root = get_sbatch_script_file_root(output_dir,project,stage,site)
     return submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,
                              output_dir,site,out_file_root,sbatch_file_root,
-                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint)
+                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc)
 
 def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,output_dir,site,out_file_root,sbatch_file_root,
-                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+                      depstr=None,account=None,qos=None,partition=None,constraint=None,threads_per_core=2):
 
     num_cores = nproc * threads
     num_nodes = int(math.ceil(num_cores/cpn))
@@ -259,6 +267,7 @@ def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,outpu
     template = template.replace('!TASKSPERNODE',str(tasks_per_node))
     template = template.replace('!TASKS',str(nproc)) # must come below !TASKSPERNODE
     template = template.replace('!THREADS',str(threads))
+    template = template.replace('!HYPERTHREADS',str(threads_per_core*threads))
 
     def _parse_none(string, pre):
         if string.lower().strip()=='none': return ''
