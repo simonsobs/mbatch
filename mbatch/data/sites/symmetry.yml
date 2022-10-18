@@ -5,6 +5,9 @@ default_qos: None
 default_account: None
 architecture:
   None:
+    actq:
+      cores_per_node: 80
+      memory_per_node_gb: 180
     amdq:
       cores_per_node: 64
       memory_per_node_gb: 220
@@ -47,7 +50,9 @@ template: |
   module load mpi
   module load icc
   module load mkl
+  module load openblas
 
   export OMP_NUM_THREADS=!THREADS
+  export NUMEXPR_MAX_THREADS=!THREADS
 
   mpirun !CMD
