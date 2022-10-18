@@ -89,7 +89,7 @@ products to disk. A stage may depend on the outputs of other stages.
 When writing a new pipeline or modifying an existing one to work with
 ``mbatch``, we recommend using the ``argparse`` Python module. Only a few things need to be kept in mind:
 
-* The pipeline stages scripts do *not* need to do any versioning or tagging of individual runs. This is done through
+* The pipeline stage scripts do *not* need to do any versioning or tagging of individual runs. This is done through
   the ``mbatch`` project name specified for each submission.
 * Every pipeline stage script should accept an argument ``--output-dir``. The user will not have
   to set this argument; it is managed by ``mbatch``.
@@ -302,7 +302,7 @@ described in the comments below:
 		     stage5:
 		         exec: python
 			 script: stage4.py
-		         depends:
+		     depends:
 			     - stage4
 			 parallel:
 			     nproc: 1
