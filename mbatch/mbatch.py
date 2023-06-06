@@ -154,7 +154,7 @@ def detect_site():
 def get_site_path():
     # First try ~/.mbatch/*.yml
     home = str(Path.home())
-    homepath = os.path.join(home,".mbatch/*.yml")
+    homepath = os.path.join(home,".mbatch/")
     fs = glob.glob(homepath)
     if len(fs)>=1: return homepath
     # Otherwise get path relative to this module
