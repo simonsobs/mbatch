@@ -215,7 +215,7 @@ def submit_glamdring(stage, parallel_config, execution,
     out_file = out_file_root+'_%j.txt'
 
     # Construct glamdring launch command
-    cmd = f'./addqueue -q {queue} '
+    cmd = f'addqueue -q {queue} '
     if openmp:
         cmd += '-s '
     cmd += f'-n {nproc}x{ncores} '
@@ -233,7 +233,6 @@ def submit_glamdring(stage, parallel_config, execution,
         return out
     # Retrieve jobid
     jobid = out.split()[3]
-    print("JOB ID is ", jobid)
     return jobid
 
 
