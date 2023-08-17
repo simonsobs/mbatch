@@ -215,7 +215,7 @@ def submit_glamdring(stage, parallel_config, execution,
     out_file = out_file_root+'_%j.txt'
 
     # Construct glamdring launch command
-    cmd = f'addqueue -q {queue} '
+    cmd = f'./addqueue -q {queue} -c {stage} '
     if openmp:
         cmd += '-s '
     cmd += f'-n {nproc}x{ncores} '
@@ -824,11 +824,10 @@ def main():
                 if not(s in args.skip) and not(s in reuse_stages):
                     jlist.append(jobids[s])
             if len(jlist)>=1:
+                depstr = ':'.join(jlist)
                 if is_glam:
-                    depstr = ','.join(jlist)
                     depstr = '--runafter '+depstr
                 else:
-                    depstr = ':'.join(jlist)
                     depstr = "--dependency=afterok:" + depstr
             else:
                 depstr = None
