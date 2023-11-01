@@ -1,0 +1,41 @@
+
+default_constraint: None
+default_part: mathm_compute
+default_qos: None
+default_account: None
+architecture:
+  None:
+    mathm_compute:
+      cores_per_node: 128
+      memory_per_node_gb: 900
+
+template: |
+  #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #SBATCH --nodes=!NODES
+  #SBATCH --time=!WALL
+  #SBATCH --ntasks-per-node=!TASKSPERNODE
+  #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --job-name=!JOBNAME
+  #SBATCH --output=!OUT_%j.txt
+  #SBATCH --mail-type=FAIL
+  #SBATCH --mail-user=
+
+  cd $SLURM_SUBMIT_DIR
+  export DISABLE_MPI=false
+
+  module load gcc
+  module load git
+  module load automake/1.16.5
+  module load cfitsio/4.2.0
+  module load fftw/3.3.10
+  module load blas/3.11.0
+  module load gsl/2.7
+  module load lapack/3.11.0
+  module load slurm/current
+  module load miniconda/22.11.1
+  export CLUSTER=penn-gpc
+  export PATH=~/.local/bin:$PATH
+
+  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+  srun !CMD

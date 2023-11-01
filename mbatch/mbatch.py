@@ -137,6 +137,8 @@ def detect_site():
         sites.append( 'niagara' )
     elif env_check=='symmetry':
         sites.append( 'symmetry' )
+    elif env_check=='penn-gpc':
+        sites.append( 'penn-gpc' )
         
     env_check = os.environ.get('NERSC_HOST',None)
     if env_check=='cori':
