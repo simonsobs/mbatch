@@ -11,6 +11,7 @@ architecture:
 
 template: |
   #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #SBATCH --exclusive
   #SBATCH --nodes=!NODES
   #SBATCH --time=!WALL
   #SBATCH --ntasks-per-node=!TASKSPERNODE

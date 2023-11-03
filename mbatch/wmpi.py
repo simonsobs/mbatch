@@ -17,7 +17,7 @@ def main():
     parser.add_argument("-q", "--qos",     type=str,  default=None,help="QOS name")
     parser.add_argument("-p", "--partition",     type=str,  default=None,help="Partition name")
     parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
-    parser.add_argument("-w", "--walltime",     type=str,  default="00:15:00",help="Walltime")
+    parser.add_argument("-w", "--walltime",     type=str,  default="0",help="Walltime")
     parser.add_argument("--dry-run", action='store_true',help='Only show submissions.')
 
 

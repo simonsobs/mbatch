@@ -241,7 +241,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     try:
         walltime = parallel_config['walltime']
     except (TypeError,KeyError) as e:
-        walltime = "00:15:00"
+        walltime = "0"
         fprint(HTML(f"<ansiyellow>No stage['parallel']['walltime'] found for <b>{stage}</b>. Assuming <b>walltime of {walltime}</b>.</ansiyellow>"))
 
     name = f'{stage}_{project}'
