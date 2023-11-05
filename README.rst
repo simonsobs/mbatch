@@ -113,6 +113,7 @@ template: |
   mpirun !CMD
 ``
 Using ``--site mysite`` to specify this template.
+To enable hyper-threading, change ``!THREADS`` to ``!HYPERTHREADS``.
 
 
 Pipeline requirements
@@ -251,6 +252,9 @@ described in the comments below:
 		    # to the script. It does not pass any positional arguments.
 		    # It also explicitly says to use 8 OpenMP threads and
 		    # requests 15 minutes of walltime.
+            # Note: If hyper-threading (2 threads per core) is enabled in SLURM
+            # template, the generated sbatch script will have
+            # OMP_NUM_THREADS=16 and --cpus-per-task=16
 		    stage2:
 		        exec: python
 		        script: stage2.py
