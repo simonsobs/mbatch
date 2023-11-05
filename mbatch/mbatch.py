@@ -145,8 +145,7 @@ def detect_site():
         sites.append( 'cori' )
         
     if len(sites)==0:
-        warnings.warn('No site specified through --site and did not automatically detect any sites. Using generic SLURM template.')
-        sites.append( 'generic' )
+        raise_exception('No site specified through --site and did not automatically detect any sites. Please create a site configuration first. See https://github.com/simonsobs/mbatch#configuration')
     elif len(sites)==1:
         fprint(HTML(f'<ansiyellow>No site specified through --site; detected <b>{sites[0]}</b> automatically.</ansiyellow>'))
     else:
