@@ -1,0 +1,40 @@
+
+default_constraint: None
+default_part: None
+default_qos: None
+default_account: DIRAC-DP002-CPU
+architecture:
+  None:
+    None:
+        cores_per_node: 76
+        memory_per_node_gb: 514 # 276 if no himem
+        threads_per_core: 1
+
+template: |
+  #!/bin/bash
+  #SBATCH -A DIRAC-DP002-CPU
+  #SBATCH -p icelake-himem
+  #SBATCH --nodes=!NODES
+  #SBATCH --time=!WALL
+  #SBATCH --ntasks-per-node=!TASKSPERNODE
+  #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --job-name=!JOBNAME
+  #SBATCH --mail-type=ALL
+  #SBATCH --mail-user=
+  #SBATCH --output=!OUT_%j.txt
+
+  source ~/.bashrc
+
+  . /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+  module purge                               # Removes all modules still loaded
+  module load rhel8/default-icl              # REQUIRED - loads the basic environment
+  module load openmpi
+
+  MPICC=/usr/local/software/openmpi/3.1.4-gcc-7.2.0/bin/mpicc
+
+  conda activate your-environment
+
+  export DISABLE_MPI=false
+  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+  mpirun -npernode !TASKSPERNODE -cpus-per-proc !THREADS  !CMD
