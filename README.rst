@@ -79,6 +79,43 @@ you can copy the contents of ``~/.local/lib/python3.8/site-packages/mbatch/data/
 (or whatever was the result of the above command) to ``~/.mbatch/``, which is the
 first location that ``mbatch`` looks for site files.
 
+You can also create a custom SLURM template `~/.mbatch/mysite.yml`. For example a site with 8 cores per node and 8GB memory per node would looks like:
+``
+
+default_constraint: None
+default_part: None
+default_qos: None
+default_account: None
+architecture:
+  None:      # constraint name
+    None:    # partition name
+      cores_per_node: 8
+      threads_per_core: 2
+      memory_per_node_gb: 8
+
+
+template: |
+  #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #SBATCH --nodes=!NODES
+  #SBATCH --time=!WALL
+  #SBATCH --ntasks-per-node=!TASKSPERNODE
+  #SBATCH --ntasks=!TASKS
+  #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --job-name=!JOBNAME
+  #SBATCH --output=!OUT_%j.txt
+  #SBATCH --mail-type=FAIL
+  #SBATCH --mail-user=
+
+  export DISABLE_MPI=false
+  export OMP_NUM_THREADS=!THREADS
+  export NUMEXPR_MAX_THREADS=!THREADS
+
+  mpirun !CMD
+``
+Using ``--site mysite`` to specify this template.
+To enable hyper-threading, change ``!THREADS`` to ``!HYPERTHREADS``.
+
+
 Pipeline requirements
 ---------------------
 
@@ -215,6 +252,9 @@ described in the comments below:
 		    # to the script. It does not pass any positional arguments.
 		    # It also explicitly says to use 8 OpenMP threads and
 		    # requests 15 minutes of walltime.
+            # Note: If hyper-threading (2 threads per core) is enabled in SLURM
+            # template, the generated sbatch script will have
+            # OMP_NUM_THREADS=16 and --cpus-per-task=16
 		    stage2:
 		        exec: python
 		        script: stage2.py
