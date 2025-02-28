@@ -19,7 +19,7 @@ def main():
     parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
     parser.add_argument("-w", "--walltime",     type=str,  default="0",help="Walltime")
     parser.add_argument("--dry-run", action='store_true',help='Only show submissions.')
-    parser.add_argument("-e", "--extra",     type=str,  default=None,help="Extra commands to run in SLURM batch script, e.g. to load a specific virtual environment.")
+    parser.add_argument("-e", "--extra",     type=str,  default='',help="Extra commands to run in SLURM batch script, e.g. to load a specific virtual environment.")
 
 
     args = parser.parse_args()
@@ -42,5 +42,6 @@ def main():
     else:
         depstr = None
     mbatch.submit_slurm_core(template,args.name,args.Command,args.N,cpn,args.threads,args.walltime,args.dry_run,
-                      args.output_dir,site,out_file_root,sbatch_file_root,
-                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc)
+                             args.output_dir,site,out_file_root,sbatch_file_root,
+                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,
+                             threads_per_core=tpc,extra=args.extra)

@@ -202,7 +202,7 @@ def get_tpc(sbatch_config,constraint,partition):
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,root_dir,
-                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+                 depstr=None,account=None,qos=None,partition=None,constraint=None,extra=''):
 
     constraint = get_default(sbatch_config,'constraint',constraint)
     qos = get_default(sbatch_config,'qos',qos)
@@ -251,7 +251,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
                              depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc)
 
 def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,output_dir,site,out_file_root,sbatch_file_root,
-                      depstr=None,account=None,qos=None,partition=None,constraint=None,threads_per_core=2):
+                      depstr=None,account=None,qos=None,partition=None,constraint=None,threads_per_core=2,extra=''):
 
     num_cores = nproc * threads
     num_nodes = int(math.ceil(num_cores/cpn))
@@ -280,6 +280,7 @@ def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,outpu
     template = template.replace('!QOS',_parse_none(qos,'qos'))
     template = template.replace('!PARTITION',_parse_none(partition,'partition'))
     template = template.replace('!OUT',out_file_root)
+    template = template.replace('!EXTRA',extra)
 
     if dry_run:
         fprint(HTML(f'<skyblue><b>{name}</b></skyblue>'))
@@ -807,7 +808,7 @@ def main():
                                  account=args.account,
                                  qos=args.qos,
                                  partition=args.partition,
-                                 constraint=args.constraint)
+                                 constraint=args.constraint,extra=args.extra)
         if is_local:
             if pargs=='':
                 cmds = [execution,script, '--output-dir',output_dir]

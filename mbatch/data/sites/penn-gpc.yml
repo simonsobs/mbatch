@@ -24,6 +24,7 @@ template: |
   cd $SLURM_SUBMIT_DIR
   export DISABLE_MPI=false
 
+ 
   module load gcc
   module load git
   module load automake/1.16.5
