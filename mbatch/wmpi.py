@@ -19,6 +19,7 @@ def main():
     parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
     parser.add_argument("-w", "--walltime",     type=str,  default="0",help="Walltime")
     parser.add_argument("--dry-run", action='store_true',help='Only show submissions.')
+    parser.add_argument("-e", "--extra",     type=str,  default=None,help="Extra commands to run in SLURM batch script, e.g. to load a specific virtual environment.")
 
 
     args = parser.parse_args()

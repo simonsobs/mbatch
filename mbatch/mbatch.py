@@ -141,8 +141,8 @@ def detect_site():
         sites.append( 'penn-gpc' )
         
     env_check = os.environ.get('NERSC_HOST',None)
-    if env_check=='cori':
-        sites.append( 'cori' )
+    if env_check=='perlmutter':
+        sites.append( 'perlmutter' )
         
     if len(sites)==0:
         raise_exception('No site specified through --site and did not automatically detect any sites. Please create a site configuration first. See https://github.com/simonsobs/mbatch#configuration')
@@ -529,10 +529,12 @@ def main():
     parser.add_argument("--force-slurm", action='store_true',help="Force SLURM. "
                         "If SLURM is not detected and --dry-run is not enabled, this will fail.")
     parser.add_argument('--skip', nargs='+', help='List of stages to skip, separated by space. These stages will be skipped even if others depend on them.')
-    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on cori, use this to select the account that is charged.')
+    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on NERSC, use this to select the account that is charged.')
     parser.add_argument("-q", "--qos",     type=str,  default=None,help="QOS name")
     parser.add_argument("-p", "--partition",     type=str,  default=None,help="Partition name")
     parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
+    parser.add_argument("-e", "--extra",     type=str,  default='',help="Extra commands to run in SLURM batch script, e.g. to load a specific virtual environment.")
+    parser.add_argument("--force-local", action='store_true',help='Force local run.')
     args = parser.parse_args()
     if args.force_local and args.force_slurm: raise_exception("You can\'t force both local and SLURM.")
 

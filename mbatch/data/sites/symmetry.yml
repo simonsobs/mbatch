@@ -54,5 +54,6 @@ template: |
 
   export OMP_NUM_THREADS=!THREADS
   export NUMEXPR_MAX_THREADS=!THREADS
+  !EXTRA
 
   mpirun !CMD
