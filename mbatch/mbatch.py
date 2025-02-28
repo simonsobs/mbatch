@@ -514,12 +514,9 @@ argument. That will force reuse without doing the above checks.
 """
     
 def main():
-    if '--show-site-path' in sys.argv:
-        print(get_site_path())
-        sys.exit(0)
     parser = argparse.ArgumentParser(description = 'A pipeline script plumbing tool.')
-    parser.add_argument('project', help='Name of project.')
-    parser.add_argument('config_yaml', help='Path to the configuration file.')
+    parser.add_argument('project', help='Name of project.', default=None,nargs='?')
+    parser.add_argument('config_yaml', help='Path to the configuration file.',default=None,nargs='?')
     parser.add_argument("--site",     type=str,  default=None,help="Name of a pre-defined cluster site. "
                         "If not specified, will attempt to detect automatically.")
     parser.add_argument("--dry-run", action='store_true',help='Only show submissions.')
@@ -534,8 +531,15 @@ def main():
     parser.add_argument("-p", "--partition",     type=str,  default=None,help="Partition name")
     parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
     parser.add_argument("-e", "--extra",     type=str,  default='',help="Extra commands to run in SLURM batch script, e.g. to load a specific virtual environment.")
-    parser.add_argument("--force-local", action='store_true',help='Force local run.')
+    parser.add_argument("--show-site-path", action='store_true',help='Show path to site configs and exit without doing anything else.')
     args = parser.parse_args()
+
+    if args.show_site_path:
+        print(get_site_path())
+        sys.exit(0)
+
+    if (args.project is None) or (args.config_yaml is None): raise ValueError("Error: the following arguments are required: project, config_yaml")
+    
     if args.force_local and args.force_slurm: raise_exception("You can\'t force both local and SLURM.")
 
     # Load config file
