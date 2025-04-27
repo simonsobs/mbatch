@@ -1,12 +1,13 @@
-61;7600;1cdefault_constraint: None
+default_constraint: None
 default_part: None
 default_qos: None
 default_account: None
 architecture:
   None:
     None:
-      cores_per_node: 80
+      cores_per_node: 40
       memory_per_node_gb: 180
+      threads_per_core: 1
 
 template: |
   #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
@@ -35,5 +36,6 @@ template: |
   export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
   export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
   source ~/.uv/mapwork/bin/activate
+  !EXTRA
 
   srun !CMD

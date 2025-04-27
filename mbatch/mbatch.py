@@ -141,8 +141,8 @@ def detect_site():
         sites.append( 'penn-gpc' )
         
     env_check = os.environ.get('NERSC_HOST',None)
-    if env_check=='cori':
-        sites.append( 'cori' )
+    if env_check=='perlmutter':
+        sites.append( 'perlmutter' )
         
     if len(sites)==0:
         raise_exception('No site specified through --site and did not automatically detect any sites. Please create a site configuration first. See https://github.com/simonsobs/mbatch#configuration')
@@ -202,7 +202,7 @@ def get_tpc(sbatch_config,constraint,partition):
     
 def submit_slurm(stage,sbatch_config,parallel_config,execution,
                  script,pargs,dry_run,output_dir,site,project,root_dir,
-                 depstr=None,account=None,qos=None,partition=None,constraint=None):
+                 depstr=None,account=None,qos=None,partition=None,constraint=None,extra=''):
 
     constraint = get_default(sbatch_config,'constraint',constraint)
     qos = get_default(sbatch_config,'qos',qos)
@@ -251,7 +251,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
                              depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc)
 
 def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,output_dir,site,out_file_root,sbatch_file_root,
-                      depstr=None,account=None,qos=None,partition=None,constraint=None,threads_per_core=2):
+                      depstr=None,account=None,qos=None,partition=None,constraint=None,threads_per_core=2,extra=''):
 
     num_cores = nproc * threads
     num_nodes = int(math.ceil(num_cores/cpn))
@@ -280,6 +280,7 @@ def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,outpu
     template = template.replace('!QOS',_parse_none(qos,'qos'))
     template = template.replace('!PARTITION',_parse_none(partition,'partition'))
     template = template.replace('!OUT',out_file_root)
+    template = template.replace('!EXTRA',extra)
 
     if dry_run:
         fprint(HTML(f'<skyblue><b>{name}</b></skyblue>'))
@@ -514,12 +515,9 @@ argument. That will force reuse without doing the above checks.
 """
     
 def main():
-    if '--show-site-path' in sys.argv:
-        print(get_site_path())
-        sys.exit(0)
     parser = argparse.ArgumentParser(description = 'A pipeline script plumbing tool.')
-    parser.add_argument('project', help='Name of project.')
-    parser.add_argument('config_yaml', help='Path to the configuration file.')
+    parser.add_argument('project', help='Name of project.', default=None,nargs='?')
+    parser.add_argument('config_yaml', help='Path to the configuration file.',default=None,nargs='?')
     parser.add_argument("--site",     type=str,  default=None,help="Name of a pre-defined cluster site. "
                         "If not specified, will attempt to detect automatically.")
     parser.add_argument("--dry-run", action='store_true',help='Only show submissions.')
@@ -529,11 +527,20 @@ def main():
     parser.add_argument("--force-slurm", action='store_true',help="Force SLURM. "
                         "If SLURM is not detected and --dry-run is not enabled, this will fail.")
     parser.add_argument('--skip', nargs='+', help='List of stages to skip, separated by space. These stages will be skipped even if others depend on them.')
-    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on cori, use this to select the account that is charged.')
+    parser.add_argument("-A","--account", type=str,  default=None,help='sbatch account argument. e.g. on NERSC, use this to select the account that is charged.')
     parser.add_argument("-q", "--qos",     type=str,  default=None,help="QOS name")
     parser.add_argument("-p", "--partition",     type=str,  default=None,help="Partition name")
     parser.add_argument("-c", "--constraint",     type=str,  default=None,help="Constraint name")
+    parser.add_argument("-e", "--extra",     type=str,  default='',help="Extra commands to run in SLURM batch script, e.g. to load a specific virtual environment.")
+    parser.add_argument("--show-site-path", action='store_true',help='Show path to site configs and exit without doing anything else.')
     args = parser.parse_args()
+
+    if args.show_site_path:
+        print(get_site_path())
+        sys.exit(0)
+
+    if (args.project is None) or (args.config_yaml is None): raise ValueError("Error: the following arguments are required: project, config_yaml")
+    
     if args.force_local and args.force_slurm: raise_exception("You can\'t force both local and SLURM.")
 
     # Load config file
@@ -801,7 +808,7 @@ def main():
                                  account=args.account,
                                  qos=args.qos,
                                  partition=args.partition,
-                                 constraint=args.constraint)
+                                 constraint=args.constraint,extra=args.extra)
         if is_local:
             if pargs=='':
                 cmds = [execution,script, '--output-dir',output_dir]
