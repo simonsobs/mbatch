@@ -25,19 +25,16 @@ template: |
   export DISABLE_MPI=false
 
  
-  module load gcc
-  module load git
-  module load automake/1.16.5
-  module load fftw/3.3.10
-  module add cfitsio/4.3.1
-  module load slurm/current
-  module load miniconda/22.11.1
-  conda activate intel-mpi-py310
-  
+  module load fftw
+  module load cfitsio
+  module load gsl
+  module load blas
+  module load lapack
+
   export CLUSTER=penn-gpc
   export PATH=~/.local/bin:$PATH
 
   export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
   !EXTRA
 
-  srun !CMD
+  mpirun !CMD
