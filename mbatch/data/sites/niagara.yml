@@ -1,4 +1,3 @@
-
 default_constraint: None
 default_part: None
 default_qos: None
@@ -6,8 +5,9 @@ default_account: None
 architecture:
   None:
     None:
-      cores_per_node: 80
+      cores_per_node: 40
       memory_per_node_gb: 180
+      threads_per_core: 1
 
 template: |
   #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
@@ -23,16 +23,19 @@ template: |
   cd $SLURM_SUBMIT_DIR
   export DISABLE_MPI=false
 
-  module load NiaEnv/2019b
-  module load intel/2019u4
-  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
-  module load intelmpi/2019u4
-  module load python/3.8.5
-  module load autotools
-  module load cfitsio
-  module load gsl
 
+  module load NiaEnv/2022a
+  module load autotools
+  module load gcc
+  module load gsl
+  module load openmpi
+  module load fftw
+  module load python
+  module load mkl
+  
+  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
   export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+  source ~/.uv/mapwork/bin/activate
   !EXTRA
 
   srun !CMD
