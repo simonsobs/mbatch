@@ -8,6 +8,9 @@ architecture:
     mathm_compute:
       cores_per_node: 128
       memory_per_node_gb: 900
+    '':
+      cores_per_node: 128
+      memory_per_node_gb: 480
 
 template: |
   #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
@@ -24,12 +27,12 @@ template: |
   cd $SLURM_SUBMIT_DIR
   export DISABLE_MPI=false
 
- 
   module load fftw
   module load cfitsio
   module load gsl
   module load blas
   module load lapack
+ 
 
   export CLUSTER=penn-gpc
   export PATH=~/.local/bin:$PATH

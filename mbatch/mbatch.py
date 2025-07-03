@@ -272,6 +272,7 @@ def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,outpu
 
     def _parse_none(string, pre):
         if string.lower().strip()=='none': return ''
+        elif string.lower().strip()=='': return ''
         else: return f'\n#SBATCH --{pre}={string}'
         
     template = template.replace('!CMD',cmd)
