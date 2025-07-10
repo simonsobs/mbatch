@@ -4,7 +4,6 @@ from prompt_toolkit import print_formatted_text as fprint, HTML, prompt
 import random
 from pathlib import Path
 from pprint import pprint
-import argparse
 
 """
 Files produced:
