@@ -89,7 +89,7 @@ def gitcheck(config,cname,package):
 def get_command(global_vals, stage_configs, stage):
     stage_config = stage_configs[stage]
     execution = stage_config['exec']
-    if not(execution in ['python','python3']):
+    if not(execution in ['python','python3','python -u']):
         raise_exception("Only Python execution "
                         "is currently supported. "
                         "Shell support will be "

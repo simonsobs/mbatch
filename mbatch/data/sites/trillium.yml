@@ -1,0 +1,33 @@
+
+default_constraint: None
+default_part: None
+default_qos: None
+default_account: None
+architecture:
+  None:
+    None:
+      cores_per_node: 192
+      memory_per_node_gb: 768
+
+template: |
+  #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
+  #SBATCH --nodes=!NODES
+  #SBATCH --time=!WALL
+  #SBATCH --ntasks-per-node=!TASKSPERNODE
+  #SBATCH --cpus-per-task=!THREADS
+  #SBATCH --job-name=!JOBNAME
+  #SBATCH --output=!OUT_%j.txt
+  #SBATCH --mail-type=FAIL
+  #SBATCH --mail-user=
+
+  cd $SLURM_SUBMIT_DIR
+  export DISABLE_MPI=false
+
+  module load StdEnv/2023
+  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
+  module load cfitsio
+  module load gsl
+
+  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+  srun !CMD
