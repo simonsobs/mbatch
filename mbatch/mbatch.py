@@ -133,12 +133,8 @@ def run_local(cmds,dry_run=False,verbose=True):
 def detect_site():
     sites = []
     env_check = os.environ.get('CLUSTER',None)
-    if env_check=='niagara':
-        sites.append( 'niagara' )
-    elif env_check=='symmetry':
-        sites.append( 'symmetry' )
-    elif env_check=='penn-gpc':
-        sites.append( 'penn-gpc' )
+    if env_check in ['niagara', 'symmetry', 'penn-gpc', 'trillium']:
+        sites.append(env_check)
         
     env_check = os.environ.get('NERSC_HOST',None)
     if env_check=='perlmutter':
@@ -149,7 +145,7 @@ def detect_site():
     elif len(sites)==1:
         fprint(HTML(f'<ansiyellow>No site specified through --site; detected <b>{sites[0]}</b> automatically.</ansiyellow>'))
     else:
-        raise_exception(f"More than one site detected through environment variables: {sites}. Please specificy explicitly through the --site argument.")
+        raise_exception(f"More than one site detected through environment variables: {sites}. Please specify explicitly through the --site argument.")
     return sites[0]
 
 def get_site_path():
