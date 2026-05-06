@@ -8,6 +8,7 @@ architecture:
     None:
       cores_per_node: 192
       memory_per_node_gb: 768
+      threads_per_core: 1
 
 template: |
   #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
@@ -21,13 +22,38 @@ template: |
   #SBATCH --mail-user=
 
   cd $SLURM_SUBMIT_DIR
+
   export DISABLE_MPI=false
 
   module load StdEnv/2023
-  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
   module load cfitsio
   module load gsl
+  module load openmpi/4.1.5
+  module load mpi4py/4.0.0 python/3.12
+  
+  !EXTRA
+
+  export MKL_THREADING_LAYER=GNU
 
   export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+  export DUCC0_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-  srun !CMD
+  # Do NOT enable: pins python's OpenMP master thread to 1 CPU; ducc pthreads inherit it -> 10x slower
+  #export OMP_PLACES=cores
+  #export OMP_PROC_BIND=true
+
+  # Trillium hybrid layout: bind each rank to the smallest topology unit that fits its threads
+  # (8 cores per L3, 24 per NUMA region in NPS4, 96 per socket, 192 per node). Per Trillium Quickstart guidance.
+  if   (( OMP_NUM_THREADS <=  8 )); then
+  RESOURCE=l3cache; CORES_PER_RESOURCE=8
+  elif (( OMP_NUM_THREADS <= 24 )); then
+  RESOURCE=numa;    CORES_PER_RESOURCE=24
+  elif (( OMP_NUM_THREADS <= 96 )); then
+  RESOURCE=socket;  CORES_PER_RESOURCE=96
+  else
+  RESOURCE=node;    CORES_PER_RESOURCE=192
+  fi
+  RANKS_PER_RESOURCE=$(( CORES_PER_RESOURCE / OMP_NUM_THREADS ))
+
+  mpirun --bind-to $RESOURCE --map-by ppr:${RANKS_PER_RESOURCE}:${RESOURCE} !CMD
+
