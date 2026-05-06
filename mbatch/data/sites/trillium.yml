@@ -43,14 +43,17 @@ template: |
   #export OMP_PROC_BIND=true
 
   # Trillium hybrid layout: bind each rank to the smallest topology unit that fits its threads
-  # (8 cores per L3, 24 per NUMA region in NPS4, 96 per socket). Per Trillium Quickstart guidance.
+  # (8 cores per L3, 24 per NUMA region in NPS4, 96 per socket, 192 per node). Per Trillium Quickstart guidance.
   if   (( OMP_NUM_THREADS <=  8 )); then
   RESOURCE=l3cache; CORES_PER_RESOURCE=8
   elif (( OMP_NUM_THREADS <= 24 )); then
   RESOURCE=numa;    CORES_PER_RESOURCE=24
-  else
+  elif (( OMP_NUM_THREADS <= 96 )); then
   RESOURCE=socket;  CORES_PER_RESOURCE=96
+  else
+  RESOURCE=node;    CORES_PER_RESOURCE=192
   fi
   RANKS_PER_RESOURCE=$(( CORES_PER_RESOURCE / OMP_NUM_THREADS ))
 
   mpirun --bind-to $RESOURCE --map-by ppr:${RANKS_PER_RESOURCE}:${RESOURCE} !CMD
+
