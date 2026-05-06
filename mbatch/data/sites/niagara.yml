@@ -35,7 +35,6 @@ template: |
   
   export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
   export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-  source ~/.uv/mapwork/bin/activate
   !EXTRA
 
   srun !CMD
