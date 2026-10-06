@@ -1,6 +1,17 @@
 import os, sys, shlex, argparse
 import mbatch
 
+# SHT benchmark script
+SHT_BENCH = """
+import time, numpy as np
+from pixell import enmap, curvedsky, utils
+shape, wcs = enmap.band_geometry(np.array([-65,25])*utils.degree, res=2*utils.arcmin)
+m = enmap.enmap(np.random.standard_normal(shape).astype(np.float32), wcs)
+curvedsky.map2alm(m, lmax=4000)  # warmup
+n=5; t=time.time(); [curvedsky.map2alm(m, lmax=4000) for _ in range(n)]
+print(f'shape {shape}: {(time.time()-t)/n:.3f} s per map2alm')
+"""
+
 def _env_int(*names):
     for n in names:
         v = os.environ.get(n)
@@ -36,10 +47,16 @@ def main():
                         help="Print the launch script without running it.")
     parser.add_argument("command", nargs=argparse.REMAINDER,
                         help="Command to launch (put it after --)")
+    parser.add_argument("--bench-sht", action='store_true',
+                        help="Instead of a command, run a built-in pixell map2alm benchmark "
+                        "(lmax 4000, 2 arcmin, float32, dec -65 to 25 deg).")    
     args = parser.parse_args()
 
     cmd = args.command
     if cmd and cmd[0] == '--': cmd = cmd[1:]
+    if args.bench_sht:
+        if cmd: parser.error("--bench-sht does not take a command.")
+        cmd = ['python', '-c', SHT_BENCH]
     if not cmd: parser.error("No command given.")
     cmd = shlex.join(cmd)
 
