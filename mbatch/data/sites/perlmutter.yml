@@ -1,21 +1,18 @@
-
-default_constraint: haswell
+default_constraint: cpu
 default_part: None
 default_qos: regular
 default_account: None
 architecture:
-  haswell:
+  cpu:                       # Perlmutter CPU
     None:
-      cores_per_node: 32
+      cores_per_node: 128
       threads_per_core: 2
-      memory_per_node_gb: 100
-  knl:
+      memory_per_node_gb: 503
+  gpu:                       # Perlmutter GPU (host CPU + 4x A100)
     None:
-      cores_per_node: 68
-      threads_per_core: 4
-      memory_per_node_gb: 80
-
-
+      cores_per_node: 64
+      threads_per_core: 2
+      memory_per_node_gb: 256
 template: |
   #!/bin/bash!CONSTRAINT!QOS!PARTITION!ACCOUNT
   #SBATCH --nodes=!NODES
@@ -26,14 +23,12 @@ template: |
   #SBATCH --output=!OUT_%j.txt
   #SBATCH --mail-type=FAIL
   #SBATCH --mail-user=
-
   export DISABLE_MPI=false
-  export OMP_PROC_BIND=true
+  export OMP_PROC_BIND=spread
   export OMP_PLACES=threads
   export OMP_NUM_THREADS=!THREADS
-  export DISABLE_MPI=false
-  
-  module load python/3.7-anaconda-2019.07
+
+  module load python
   !EXTRA
-  
+
   srun --cpu-bind=cores !CMD
