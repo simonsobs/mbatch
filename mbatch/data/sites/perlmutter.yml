@@ -36,7 +36,5 @@ env: |
   module load python
 
 launcher: |
-  export OMP_PROC_BIND=spread
-  export OMP_PLACES=threads
   export OMP_NUM_THREADS=!THREADS
   srun !NPFLAG !CPTFLAG --cpu-bind=cores !CMD
