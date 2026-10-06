@@ -42,6 +42,14 @@ template: |
   #SBATCH --mail-user=
 
   cd $SLURM_SUBMIT_DIR
+
+  !ENV
+
+  !EXTRA
+
+  !LAUNCH
+
+env: |
   export DISABLE_MPI=false
 
   module load anaconda3
@@ -52,8 +60,8 @@ template: |
   module load mkl
   module load openblas
 
+launcher: |
   export OMP_NUM_THREADS=!THREADS
   export NUMEXPR_MAX_THREADS=!THREADS
-  !EXTRA
 
-  mpirun !CMD
+  mpirun !NPFLAG !CMD

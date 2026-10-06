@@ -59,7 +59,7 @@ setup(
     description="mbatch",
     package_dir={"mbatch": "mbatch"},
     entry_points = {
-    'console_scripts': ['mbatch=mbatch.mbatch:main','wmpi=mbatch.wmpi:main'],
+    'console_scripts': ['mbatch=mbatch.mbatch:main','wmpi=mbatch.wmpi:main','mrun=mbatch.mrun:main'],
     },
     install_requires=requirements,
     license="BSD license",
