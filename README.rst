@@ -497,7 +497,7 @@ with ``mbatch`` or ``wmpi``. Here's how to use it:
 .. code-block:: bash
 
 	usage: mrun [-h] [-n NPROC] [-t THREADS] [-s SITE] [-p PARTITION]
-	            [-c CONSTRAINT] [-e EXTRA] [--no-env] [--dry-run]
+	            [-c CONSTRAINT] [-e EXTRA] [--no-env] [--dry-run] [--bench-sht]
 	            ...
 
 	Launch a hybrid MPI+OpenMP command with the site-aware launcher from the site
@@ -528,6 +528,9 @@ with ``mbatch`` or ``wmpi``. Here's how to use it:
 	  --no-env              Skip the site `env` block (module loads etc.), e.g. if
 	                        your environment is already set up.
 	  --dry-run             Print the launch script without running it.
+	  --bench-sht           Instead of a command, run the SHT benchmark `mbench
+	                        sht`; arguments after -- are passed to it. Needs
+	                        mbatch and pixell in the launched environment.
 
 	Example: mrun -n 4 -t 24 -- python myscript.py --lmax 4000
 
@@ -610,3 +613,34 @@ under ``mrun`` and expand to nothing inside sbatch scripts:
 
 ``mrun`` only works with sites that define a ``launcher`` block (all built-in
 sites do). See the Configuration section above for the site file layout.
+
+
+Benchmarking with mbench
+------------------------
+
+``mbench`` provides benchmark workloads to run through ``mrun``, so that you can
+see how a given number of processes, threads and CPU binding performs on a site.
+Each MPI process runs its own copy of the benchmark. ``mbench`` does not change
+any thread settings, so the results reflect the environment set up by your site
+file and shell. Benchmarks are chosen with a subcommand; currently there is
+one, ``sht``, which needs pixell (installable with the ``bench`` extra, e.g.
+``pip install -e ".[bench]"``).
+
+.. code-block:: bash
+
+	mbench sht --res 30 --lmax 300 --nrep 2  # quick, small test
+	mrun -n 1 -t 8 -- mbench sht --res 2 --op map2alm alm2map
+	mrun -n 1 -t 8 -- mbench sht --pix healpix --nside 2048 --pol
+	for t in 8 24 48 96; do mrun -n 1 -t $t -- mbench sht; done
+	mrun -t 24 --bench-sht -- --full-sky   # same as: mrun -t 24 -- mbench sht --full-sky
+
+``mbench sht`` draws random alms with a flat spectrum and times
+``pixell.curvedsky`` map2alm and/or alm2map (``--op``). By default it uses a CAR
+map covering a declination band (``--dec``, -63 to 23 degrees) at ``--res``
+arcmin; ``--full-sky`` uses a full-sky CAR map, and ``--pix healpix`` a full-sky
+HEALPix map at ``--nside``. ``--lmax`` defaults to 4000, so lower it together
+with the resolution (it should not exceed about 180*60/res for CAR or
+3*nside for HEALPix). ``--pol`` uses T, Q, U instead of a single scalar map,
+and ``--double`` switches from single to double precision. Each operation is run
+once as a warm-up and then ``--nrep`` times, and the mean, best and individual
+times are printed.
