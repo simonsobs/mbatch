@@ -21,8 +21,15 @@ template: |
   #SBATCH --mail-user=
 
   cd $SLURM_SUBMIT_DIR
-  export DISABLE_MPI=false
 
+  !ENV
+
+  !EXTRA
+
+  !LAUNCH
+
+env: |
+  export DISABLE_MPI=false
 
   module load NiaEnv/2022a
   module load autotools
@@ -32,9 +39,9 @@ template: |
   module load fftw
   module load python
   module load mkl
-  
-  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
-  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-  !EXTRA
 
-  srun !CMD
+launcher: |
+  export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=disable
+  export OMP_NUM_THREADS=!THREADS
+
+  srun !NPFLAG !CPTFLAG !CMD

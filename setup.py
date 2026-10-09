@@ -59,9 +59,11 @@ setup(
     description="mbatch",
     package_dir={"mbatch": "mbatch"},
     entry_points = {
-    'console_scripts': ['mbatch=mbatch.mbatch:main','wmpi=mbatch.wmpi:main'],
+    'console_scripts': ['mbatch=mbatch.mbatch:main','wmpi=mbatch.wmpi:main','mrun=mbatch.mrun:main',
+                        'mbench=mbatch.mbench:main'],
     },
     install_requires=requirements,
+    extras_require={'bench': ['pixell']},
     license="BSD license",
     long_description=readme + '\n\n' + history,
     package_data={'mbatch': ['mbatch/data/sites/*.yml']},

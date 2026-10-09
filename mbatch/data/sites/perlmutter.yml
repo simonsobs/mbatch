@@ -23,12 +23,18 @@ template: |
   #SBATCH --output=!OUT_%j.txt
   #SBATCH --mail-type=FAIL
   #SBATCH --mail-user=
-  export DISABLE_MPI=false
-  export OMP_PROC_BIND=spread
-  export OMP_PLACES=threads
-  export OMP_NUM_THREADS=!THREADS
 
-  module load python
+  !ENV
+
   !EXTRA
 
-  srun --cpu-bind=cores !CMD
+  !LAUNCH
+
+env: |
+  export DISABLE_MPI=false
+
+  module load python
+
+launcher: |
+  export OMP_NUM_THREADS=!THREADS
+  srun !NPFLAG !CPTFLAG --cpu-bind=cores !CMD

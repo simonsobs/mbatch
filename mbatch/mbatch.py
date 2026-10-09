@@ -1,5 +1,5 @@
 import os,sys,shutil,subprocess,warnings,glob,re,shlex,copy
-import argunparse,yaml,math,time
+import argunparse,yaml,math,time,html
 from prompt_toolkit import print_formatted_text as fprint, HTML, prompt
 import random
 from pathlib import Path
@@ -159,11 +159,53 @@ def get_site_path():
     template_path = os.path.join(this_dir, "data", "sites")
     return template_path
 
+# Placeholders that only make sense when launching outside sbatch (mrun).
+# Inside an sbatch script they expand to nothing, so the launcher takes the
+# rank and CPU counts from the allocation.
+MRUN_ONLY_PLACEHOLDERS = ['!NPFLAG', '!CPTFLAG']
+
+def _strip_mrun_only(text):
+    for p in MRUN_ONLY_PLACEHOLDERS:
+        text = re.sub(re.escape(p) + r' ?', '', text)
+    return text
+
 def load_template(site):
     template_path = os.path.join(get_site_path(), f"{site}.yml")
     with open(template_path, 'r') as stream:
         sbatch_config = yaml.safe_load(stream)
+    # Optional split of a site config into reusable blocks:
+    #   env:      environment setup (module loads etc.), inserted at !ENV
+    #   launcher: thread exports, binding and the mpirun/srun line, inserted at !LAUNCH
+    # The same blocks are used by `mrun` to launch outside of sbatch.
+    # Templates without these placeholders are left untouched.
+    template = sbatch_config.get('template', '')
+    if '!ENV' in template:
+        env = sbatch_config.get('env', '') or ''
+        template = template.replace('!ENV', env.rstrip('\n'))
+    if '!LAUNCH' in template:
+        if not sbatch_config.get('launcher'):
+            raise_exception(f"Site {site} template uses !LAUNCH but defines no `launcher` block.")
+        template = template.replace('!LAUNCH', _strip_mrun_only(sbatch_config['launcher'].rstrip('\n')))
+    sbatch_config['template'] = template
     return sbatch_config
+
+def render_launcher(sbatch_config, cmd, nproc, threads, threads_per_core=1, extra='', with_env=True):
+    """Build a shell script from a site's `env` and `launcher` blocks for running
+    cmd with nproc MPI processes of threads OpenMP threads each (used by mrun)."""
+    if not sbatch_config.get('launcher'):
+        raise_exception("This site has no `launcher` block in its configuration, so mrun cannot be used with it.")
+    parts = []
+    if with_env and sbatch_config.get('env'): parts.append(sbatch_config['env'].rstrip('\n'))
+    if extra: parts.append(extra)
+    parts.append(sbatch_config['launcher'].rstrip('\n'))
+    script = '\n\n'.join(parts) + '\n'
+    script = script.replace('!NPFLAG', f'-n {nproc}')
+    script = script.replace('!CPTFLAG', f'-c {threads_per_core*threads}')
+    script = script.replace('!TASKS', str(nproc))
+    script = script.replace('!THREADS', str(threads))
+    script = script.replace('!HYPERTHREADS', str(threads_per_core*threads))
+    script = script.replace('!CMD', cmd)
+    return script
 
 def get_out_file_root(root_dir,stage,project,site):
     return os.path.join(get_output_dir(root_dir,stage,project),f'slurm_out_{stage}_{project}_{site}')
@@ -244,7 +286,7 @@ def submit_slurm(stage,sbatch_config,parallel_config,execution,
     sbatch_file_root = get_sbatch_script_file_root(output_dir,project,stage,site)
     return submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,
                              output_dir,site,out_file_root,sbatch_file_root,
-                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc)
+                             depstr=depstr,account=account,qos=qos,partition=partition,constraint=constraint,threads_per_core=tpc,extra=extra)
 
 def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,output_dir,site,out_file_root,sbatch_file_root,
                       depstr=None,account=None,qos=None,partition=None,constraint=None,threads_per_core=2,extra=''):
@@ -282,7 +324,7 @@ def submit_slurm_core(template,name,cmd,nproc,cpn,threads,walltime,dry_run,outpu
     if dry_run:
         fprint(HTML(f'<skyblue><b>{name}</b></skyblue>'))
         fprint(HTML(f'<skyblue><b>{"".join(["="]*len(name))}</b></skyblue>'))
-        fprint(HTML(f'<skyblue>{template}</skyblue>'))
+        fprint(HTML(f'<skyblue>{html.escape(template)}</skyblue>'))
     
     # Get current time in Unix milliseconds to define log directory
     init_time_ms = int(time.time()*1e3)
@@ -364,8 +406,6 @@ def get_info(package=None,path=None,validate=True):
 
 
 '''
-Modified from rcludwick's Github Gist: https://gist.github.com/rcludwick/3663979
-
 These functions take a dictionary of dependencies in the following way:
 
 depdict = { 'a' : [ 'b', 'c', 'd'],
@@ -380,88 +420,51 @@ flatten() will create an ordered list of items according to the dependency struc
 Note:  To generate a list of dependencies in increasing order of dependencies, say for a build, run: flatten(MyDepDict)
 '''
 
-def _order(idepdict, val=None, level=0):
-    '''Generates a relative order in a dep dictionary'''
-    results = {}
-    if val is None:
-        for k,v in idepdict.items():
-            for dep in v:
-                results.setdefault(k,0)
-                d = _order(idepdict, val=dep, level=level+1)
-                for dk, dv in d.items():
-                    if dv > results.get(dk,0):
-                        results[dk] = dv
-        return results
-    else:
-        results[val] = level
-        deps = idepdict.get(val, None)
-        if deps is None or deps == []:
-            return { val: level }
-        else:
-            for dep in deps:
-                d = _order(idepdict, val=dep, level=level+1)
-                for dk, dv in d.items():
-                    if dv > results.get(dk,0):
-                        results[dk] = dv
-            return results
-
-def _invert(d):
-    '''Inverts a dictionary'''
-    i = {}
-    for k,v in d.items():
-        try:
-            iterator = iter(v)
-        except TypeError:
-            depl = i.get(v, [])
-            depl.append(k)
-            i[v] = depl
-        else:
-            for dep in v:
-                depl = i.get(dep, [])
-                depl.append(k)
-                i[dep] = depl
-    return i
-
 def flatten(depdict):
-    '''flatten() generates a list of deps in order'''
-    #Generate an inverted deplist
-    ideps = _invert(depdict)
+    '''flatten() generates a list of deps in order: stages sorted by the length of
+    their longest chain of dependencies (0 for a stage without dependencies), so that
+    every stage comes after the stages it depends on. Stages that neither depend on nor
+    are depended on by others are left out. Linear in the number of dependencies
+    (memoized); assumes no cycle (check with has_loop first).'''
+    level = {}
 
-    #generate relative order
-    order = _order(ideps)
+    def get(node):
+        if node not in level:
+            ds = depdict.get(node, [])
+            level[node] = 1 + max(get(d) for d in ds) if ds else 0
+        return level[node]
 
-    #Invert the order
-    iorder = _invert(order)
-
-    #Sort the keys and append to a list
-    output = [] 
-    for key in sorted(list(iorder.keys())):
-        output.extend(iorder[key])
-    return output
+    for node, ds in depdict.items():
+        if ds:
+            get(node)
+    return sorted(level, key=level.get)
 
 
-def has_loop(depdict, seen=None, val=None):
-    '''Check to see if a given depdict has a dependency loop'''
-    if seen is None:
-        for k, v in depdict.items(): 
-            seen = []
-            for val in v: 
-                if has_loop(depdict, seen=list(seen), val=val):
+def has_loop(depdict):
+    '''Check to see if a given depdict has a dependency loop: depth-first search that
+    marks the stages on the current path (1) and those already explored (2), linear in
+    the number of dependencies.'''
+    state = {}
+    for root in depdict:
+        if root in state:
+            continue
+        state[root] = 1
+        stack = [(root, iter(depdict.get(root, [])))]
+        while stack:
+            node, it = stack[-1]
+            for dep in it:
+                s = state.get(dep)
+                if s == 1:
                     return True
-            
-    else:
-        if val in seen:
-            return True
-        else:
-            seen.append(val)
-            k = val
-            v = depdict.get(k,[])
-            for val in v:
-                if has_loop(depdict, seen=list(seen), val=val):
-                    return True
-    
-    return False            
-            
+                if s is None:
+                    state[dep] = 1
+                    stack.append((dep, iter(depdict.get(dep, []))))
+                    break
+            else:
+                state[node] = 2
+                stack.pop()
+    return False
+
 
 def raise_exception(message):
     fprint(HTML(f"<red>{message}</red>"))

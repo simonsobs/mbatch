@@ -23,6 +23,13 @@ template: |
 
   cd $SLURM_SUBMIT_DIR
 
+  !ENV
+
+  !EXTRA
+
+  !LAUNCH
+
+env: |
   export DISABLE_MPI=false
 
   module load StdEnv/2023
@@ -30,13 +37,12 @@ template: |
   module load gsl
   module load openmpi/4.1.5
   module load mpi4py/4.0.0 python/3.12
-  
-  !EXTRA
 
+launcher: |
   export MKL_THREADING_LAYER=GNU
 
-  export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-  export DUCC0_NUM_THREADS=$SLURM_CPUS_PER_TASK
+  export OMP_NUM_THREADS=!THREADS
+  export DUCC0_NUM_THREADS=!THREADS
 
   # Do NOT enable: pins python's OpenMP master thread to 1 CPU; ducc pthreads inherit it -> 10x slower
   #export OMP_PLACES=cores
@@ -55,5 +61,4 @@ template: |
   fi
   RANKS_PER_RESOURCE=$(( CORES_PER_RESOURCE / OMP_NUM_THREADS ))
 
-  mpirun --bind-to $RESOURCE --map-by ppr:${RANKS_PER_RESOURCE}:${PPR_RESOURCE} !CMD
-
+  mpirun !NPFLAG --bind-to $RESOURCE --map-by ppr:${RANKS_PER_RESOURCE}:${PPR_RESOURCE} !CMD
